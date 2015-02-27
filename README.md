@@ -6,9 +6,10 @@ Currently available:
 
 + Shannon Entropy ```shannon_entropy```
 + Sample Entropy ```sample_entropy```
-+ Multiscale Entropy ```multi_scale_entropy```
++ Multiscale Entropy ```multiscale_entropy```
 + Permutation Entropy ```permutation_entropy```
-+ Multiscale Permutation Entropy ```multi_scale_permutation_entropy```
++ Multiscale Permutation Entropy ```multiscale_permutation_entropy```
++ Composite Multiscale Permutation Entropy ```composite_multiscale_entropy```
 
 Requirements:
 
