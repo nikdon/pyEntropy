@@ -139,7 +139,7 @@ def sample_entropy(time_series, sample_length, tolerance):
 
 
 def multi_scale_entropy(time_series, sample_length, tolerance):
-    """Calculate the Multi-Scale Entropy of given time series considering
+    """Calculate the Multiscale Entropy of given time series considering
     different time-scales of the time series.
 
     Args:
@@ -148,7 +148,7 @@ def multi_scale_entropy(time_series, sample_length, tolerance):
         tolerance: Tolerance (default = 0.1...0.2 * std(time_series))
 
     Returns:
-        Vector containing Multi-Scale Entropy
+        Vector containing Multiscale Entropy
 
     Reference:
         [1] http://en.pudn.com/downloads149/sourcecode/math/detail646216_en.html
@@ -205,7 +205,7 @@ def permutation_entropy(time_series, m, delay):
 
 
 def multi_scale_permutation_entropy(time_series, m, delay, scale):
-    """Calculate the Multi-Scale Permutation Entropy
+    """Calculate the Multiscale Permutation Entropy
 
     Args:
         time_series: Time series for analysis
@@ -214,7 +214,7 @@ def multi_scale_permutation_entropy(time_series, m, delay, scale):
         scale: Scale factor
 
     Returns:
-        Vector containing Multi-Scale Permutation Entropy
+        Vector containing Multiscale Permutation Entropy
 
     Reference:
         [1] Francesco Carlo Morabito et al. Multivariate Multi-Scale Permutation Entropy for
