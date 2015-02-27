@@ -36,14 +36,14 @@ class TestEntropy(TestCase):
     def test_multiScaleEntropy(self):
         ts = TS_SAMPLE_ENTROPY
         std_ts = np.std(ts)
-        multi_scale_entropy = ent.multi_scale_entropy(ts, 4, 0.2 * std_ts)
+        multi_scale_entropy = ent.multiscale_entropy(ts, 4, 0.2 * std_ts)
         np.testing.assert_array_equal(np.round(multi_scale_entropy, 4), np.array([2.2119, 2.6221, 1.7473, 1.9902]))
 
     def test_permutationEntropy(self):
         self.assertEqual(np.round(ent.permutation_entropy(TS_SAMPLE_ENTROPY, 3, 5), 4), 1.7120)
 
     def test_multiScalePermutationEntropy(self):
-        np.testing.assert_array_equal(np.round(ent.multi_scale_permutation_entropy(TS_SAMPLE_ENTROPY, 3, 5, 2), 4),
+        np.testing.assert_array_equal(np.round(ent.multiscale_permutation_entropy(TS_SAMPLE_ENTROPY, 3, 5, 2), 4),
                                       np.array([1.7120, 1.7779]))
 
     def test_utilSequence(self):

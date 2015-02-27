@@ -56,7 +56,7 @@ def util_granulate_time_series(time_series, scale):
 
 
 def shannon_entropy(time_series):
-    """Return a Shannon Entropy of a sample data.
+    """Return the Shannon Entropy of the sample data.
 
     Args:
         time_series: Vector or string of the sample data
@@ -88,7 +88,7 @@ def shannon_entropy(time_series):
     return ent
 
 
-def sample_entropy(time_series, sample_length, tolerance):
+def sample_entropy(time_series, sample_length, tolerance=None):
     """Calculate and return Sample Entropy of the given time series.
     Distance between two vectors defined as Euclidean distance and can
     be changed in future releases
@@ -107,6 +107,9 @@ def sample_entropy(time_series, sample_length, tolerance):
         [3] Madalena Costa, Ary Goldberger, CK Peng. Multiscale entropy analysis
             of biological signals
     """
+    if tolerance is None:
+        tolerance = 0.1 * np.std(time_series)
+
     n = len(time_series)
     prev = np.zeros((1, n))
     curr = np.zeros((1, n))
@@ -138,13 +141,13 @@ def sample_entropy(time_series, sample_length, tolerance):
     return se
 
 
-def multi_scale_entropy(time_series, sample_length, tolerance):
-    """Calculate the Multiscale Entropy of given time series considering
+def multiscale_entropy(time_series, sample_length, tolerance):
+    """Calculate the Multiscale Entropy of the given time series considering
     different time-scales of the time series.
 
     Args:
         time_series: Time series for analysis
-        sample_length: Bandwidth or group of point
+        sample_length: Bandwidth or group of points
         tolerance: Tolerance (default = 0.1...0.2 * std(time_series))
 
     Returns:
@@ -204,7 +207,7 @@ def permutation_entropy(time_series, m, delay):
     return pe
 
 
-def multi_scale_permutation_entropy(time_series, m, delay, scale):
+def multiscale_permutation_entropy(time_series, m, delay, scale):
     """Calculate the Multiscale Permutation Entropy
 
     Args:
@@ -227,3 +230,30 @@ def multi_scale_permutation_entropy(time_series, m, delay, scale):
         pe = permutation_entropy(coarse_time_series, m, delay)
         mspe.append(pe)
     return mspe
+
+
+# TODO add tests
+def composite_multiscale_entropy(time_series, sample_length, scale):
+    """Calculate the Composite Multiscale Entropy of the given time series.
+
+    Args:
+        time_series: Time series for analysis
+        sample_length: Number of sequential points of the time series
+        scale: Scale factor
+
+    Returns:
+        Vector containing Composite Multiscale Entropy
+
+    Reference:
+        [1] Wu, Shuen-De, et al. "Time series analysis using
+            composite multiscale entropy." Entropy 15.3 (2013): 1069-1084.
+    """
+    cmse = np.zeros((1, scale))
+    r = np.std(time_series) * 0.15
+
+    for i in xrange(scale):
+        for j in xrange(i):
+            tmp = util_granulate_time_series(time_series[j:], i+1)
+            cmse[i] += sample_entropy(tmp, sample_length, r)/(i + 1)
+
+    return cmse
