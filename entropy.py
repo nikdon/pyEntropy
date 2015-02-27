@@ -170,7 +170,7 @@ def multi_scale_entropy(time_series, sample_length, tolerance):
 
 
 def permutation_entropy(time_series, m, delay):
-    """Calculate the permutation entropy
+    """Calculate the Permutation Entropy
 
     Args:
         time_series: Time series for analysis
