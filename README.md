@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/nikdon/pyEntropy.svg?branch=master)](https://travis-ci.org/nikdon/pyEntropy)
 [![codecov](https://codecov.io/gh/nikdon/pyEntropy/branch/master/graph/badge.svg)](https://codecov.io/gh/nikdon/pyEntropy)
+![py27 status](https://img.shields.io/badge/python2.7-supported-green.svg)
+![py35 status](https://img.shields.io/badge/python3.5.2-supported-green.svg)
 
 This is a small set of functions on top of NumPy that help to compute different types of entropy for time series analysis.
 
