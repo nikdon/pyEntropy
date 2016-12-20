@@ -2,7 +2,7 @@
 
 from __future__ import unicode_literals
 
-from unittest import TestCase
+import unittest
 
 import numpy as np
 import entropy as ent
@@ -17,7 +17,7 @@ TS_SAMPLE_ENTROPY = [1, 4, 5, 1, 7, 3, 1, 2, 5, 8, 9, 7, 3, 7, 9, 5, 4, 3, 9, 1,
                      8]
 
 
-class TestEntropy(TestCase):
+class TestEntropy(unittest.TestCase):
     def test_shannonEntropyString(self):
         self.assertEqual(round(ent.shannon_entropy(TIME_SERIES_STRING), 5), SHANNON_ENTROPY)
 
@@ -49,3 +49,7 @@ class TestEntropy(TestCase):
         self.assertRaises(Exception, ent.util_pattern_space, (TIME_SERIES, 10, 20))
         np.testing.assert_array_equal(ent.util_pattern_space(TIME_SERIES, 2, 3),
                                       np.array([[1, 1, 3], [1, 2, 4], [1, 3, 5]]))
+
+
+if __name__ == '__main__':
+    unittest.main()
