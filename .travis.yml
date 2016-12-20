@@ -8,8 +8,12 @@ python:
   - "3.4"
   - "3.5"
 
-# command to install dependencies
-install: "pip install -r requirements.txt"
+install:
+  - pip install codecov
+  - pip install -r requirements.txt
 
-# command to run tests
-script: python test_entropy.py
+script:
+  - coverage run test_entropy.py
+
+after_success:
+  - codecov
