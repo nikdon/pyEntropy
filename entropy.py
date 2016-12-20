@@ -160,7 +160,7 @@ def multiscale_entropy(time_series, sample_length, tolerance):
     mse = np.zeros((1, sample_length))
 
     for i in range(sample_length):
-        b = np.fix(n / (i + 1))
+        b = int(np.fix(n / (i + 1)))
         temp_ts = [0] * int(b)
         for j in range(b):
             num = sum(time_series[j * (i + 1): (j + 1) * (i + 1)])
