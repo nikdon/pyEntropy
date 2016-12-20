@@ -1,6 +1,7 @@
 # pyEntropy
 
 [![Build Status](https://travis-ci.org/nikdon/pyEntropy.svg?branch=master)](https://travis-ci.org/nikdon/pyEntropy)
+[![codecov](https://codecov.io/gh/nikdon/pyEntropy/branch/master/graph/badge.svg)](https://codecov.io/gh/nikdon/pyEntropy)
 
 This is a small set of functions on top of NumPy that help to compute different types of entropy for time series analysis.
 
