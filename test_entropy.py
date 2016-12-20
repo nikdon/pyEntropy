@@ -7,7 +7,6 @@ from unittest import TestCase
 import numpy as np
 import entropy as ent
 
-
 TIME_SERIES = [1, 1, 1, 2, 3, 4, 5]
 TIME_SERIES_STRING = '1112345'
 SHANNON_ENTROPY = 2.12809
@@ -19,7 +18,6 @@ TS_SAMPLE_ENTROPY = [1, 4, 5, 1, 7, 3, 1, 2, 5, 8, 9, 7, 3, 7, 9, 5, 4, 3, 9, 1,
 
 
 class TestEntropy(TestCase):
-
     def test_shannonEntropyString(self):
         self.assertEqual(round(ent.shannon_entropy(TIME_SERIES_STRING), 5), SHANNON_ENTROPY)
 

@@ -26,8 +26,8 @@ def util_pattern_space(time_series, lag, dim):
         raise Exception('Lag should be greater or equal to 1.')
 
     pattern_space = np.empty((n - lag * (dim - 1), dim))
-    for i in xrange(n - lag * (dim - 1)):
-        for j in xrange(dim):
+    for i in range(n - lag * (dim - 1)):
+        for j in range(dim):
             pattern_space[i][j] = time_series[i + j * lag]
 
     return pattern_space
@@ -50,7 +50,7 @@ def util_granulate_time_series(time_series, scale):
     n = len(time_series)
     b = int(np.fix(n / scale))
     cts = [0] * b
-    for i in xrange(b):
+    for i in range(b):
         cts[i] = np.mean(time_series[i * scale: (i + 1) * scale])
     return cts
 
@@ -111,31 +111,31 @@ def sample_entropy(time_series, sample_length, tolerance=None):
         tolerance = 0.1 * np.std(time_series)
 
     n = len(time_series)
-    prev = np.zeros((1, n))
-    curr = np.zeros((1, n))
+    prev = np.zeros(n)
+    curr = np.zeros(n)
     A = np.zeros((sample_length, 1))  # number of matches for m = [1,...,template_length - 1]
     B = np.zeros((sample_length, 1))  # number of matches for m = [1,...,template_length]
 
-    for i in xrange(n - 1):
+    for i in range(n - 1):
         nj = n - i - 1
         ts1 = time_series[i]
-        for jj in xrange(nj):
+        for jj in range(nj):
             j = jj + i + 1
             if abs(time_series[j] - ts1) < tolerance:  # distance between two vectors
-                curr[0, jj] = prev[0, jj] + 1
-                temp_ts_length = min(sample_length, curr[0, jj])
-                for m in xrange(int(temp_ts_length)):
+                curr[jj] = prev[jj] + 1
+                temp_ts_length = min(sample_length, curr[jj])
+                for m in range(int(temp_ts_length)):
                     A[m] += 1
                     if j < n - 1:
                         B[m] += 1
             else:
-                curr[0, jj] = 0
-        for j in xrange(nj):
-            prev[0, j] = curr[0, j]
+                curr[jj] = 0
+        for j in range(nj):
+            prev[j] = curr[j]
 
     N = n * (n - 1) / 2
     B = np.vstack(([N], B[:sample_length - 1]))
-    similarity_ratio = A / B  # np.divide(A, B)
+    similarity_ratio = A / B
     se = - np.log(similarity_ratio)
     se = np.reshape(se, -1)
     return se
@@ -159,10 +159,10 @@ def multiscale_entropy(time_series, sample_length, tolerance):
     n = len(time_series)
     mse = np.zeros((1, sample_length))
 
-    for i in xrange(sample_length):
+    for i in range(sample_length):
         b = np.fix(n / (i + 1))
         temp_ts = [0] * int(b)
-        for j in xrange(b):
+        for j in range(b):
             num = sum(time_series[j * (i + 1): (j + 1) * (i + 1)])
             den = i + 1
             temp_ts[j] = float(num) / float(den)
@@ -194,10 +194,10 @@ def permutation_entropy(time_series, m, delay):
     permutations = np.array(list(itertools.permutations(range(m))))
     c = [0] * len(permutations)
 
-    for i in xrange(n - delay * (m - 1)):
+    for i in range(n - delay * (m - 1)):
         # sorted_time_series =    np.sort(time_series[i:i+delay*m:delay], kind='quicksort')
         sorted_index_array = np.array(np.argsort(time_series[i:i + delay * m:delay], kind='quicksort'))
-        for j in xrange(len(permutations)):
+        for j in range(len(permutations)):
             if abs(permutations[j] - sorted_index_array).any() == 0:
                 c[j] += 1
 
@@ -225,7 +225,7 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
         [2] http://www.mathworks.com/matlabcentral/fileexchange/37288-multiscale-permutation-entropy-mpe/content/MPerm.m
     """
     mspe = []
-    for i in xrange(scale):
+    for i in range(scale):
         coarse_time_series = util_granulate_time_series(time_series, i + 1)
         pe = permutation_entropy(coarse_time_series, m, delay)
         mspe.append(pe)
@@ -251,9 +251,9 @@ def composite_multiscale_entropy(time_series, sample_length, scale):
     cmse = np.zeros((1, scale))
     r = np.std(time_series) * 0.15
 
-    for i in xrange(scale):
-        for j in xrange(i):
-            tmp = util_granulate_time_series(time_series[j:], i+1)
-            cmse[i] += sample_entropy(tmp, sample_length, r)/(i + 1)
+    for i in range(scale):
+        for j in range(i):
+            tmp = util_granulate_time_series(time_series[j:], i + 1)
+            cmse[i] += sample_entropy(tmp, sample_length, r) / (i + 1)
 
     return cmse
