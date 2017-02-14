@@ -19,3 +19,5 @@ Currently available:
 Requirements:
 
 + ```>numpy-1.7.0```
+
+[![Analytics](https://ga-beacon.appspot.com/UA-91956314-1/pyEntropy/readme?pixel)](https://github.com/igrigorik/ga-beacon)
