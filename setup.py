@@ -23,9 +23,13 @@ setup(
               'composite multiscale entropy'],
 
     classifiers=[
-        'Environment :: Console',
+        'Development Status :: 5 - Stable',
+
         'Intended Audience :: Science/Research',
         'Operating System :: OS Independent',
+
+        'License :: OSI Approved :: Apache-2 License',
+
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
@@ -33,6 +37,7 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+
         'Topic :: Scientific/Engineering :: Bio-Informatics',
         'Topic :: Scientific/Engineering :: Information Analysis',
         'Topic :: Scientific/Engineering :: Mathematics',
