@@ -2,11 +2,10 @@ from distutils.core import setup
 
 setup(
     name='pyentrp',
-    version='0.1.0',
+    version='0.3.0',
     description='Functions on top of NumPy for computing different types of entropy',
-    long_description=open("README.md").read(),
     url='https://github.com/nikdon/pyEntropy',
-    download_url='github.com/nikdon/pyEntropy/tarball/0.1.0.tar.gz',
+    download_url='https://github.com/nikdon/pyEntropy/archive/0.3.0.tar.gz',
     author='Nikolay Donets',
     author_email='nd.startup@gmail.com',
     maintainer='Nikolay Donets',
@@ -23,12 +22,12 @@ setup(
               'composite multiscale entropy'],
 
     classifiers=[
-        'Development Status :: 5 - Stable',
+        'Development Status :: 5 - Production/Stable',
 
         'Intended Audience :: Science/Research',
         'Operating System :: OS Independent',
 
-        'License :: OSI Approved :: Apache-2 License',
+        'License :: OSI Approved :: Apache Software License',
 
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
