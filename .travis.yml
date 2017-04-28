@@ -9,7 +9,8 @@ install:
   - pip install -r requirements.txt
 
 script:
-  - coverage setup.py test
+  - python setup.py
+  - coverage run tests/test_entropy.py
 
 after_success:
   - codecov
