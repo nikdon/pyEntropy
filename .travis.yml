@@ -9,7 +9,7 @@ install:
   - pip install -r requirements.txt
 
 script:
-  - python setup.py
+  - python setup.py install
   - coverage run tests/test_entropy.py
 
 after_success:
