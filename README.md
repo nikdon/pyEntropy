@@ -1,4 +1,4 @@
-# pyEntropy
+# pyEntropy (pyEntrp)
 
 [![pypi](https://img.shields.io/badge/pypi-0.1.0-green.svg)](https://pypi.python.org/pypi/pyentrp/0.1.0)
 [![Build Status](https://travis-ci.org/nikdon/pyEntropy.svg?branch=master)](https://travis-ci.org/nikdon/pyEntropy)
@@ -33,7 +33,7 @@ std_ts = np.std(ts)
 sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
 ```
 
-Requirements:
+## Requirements:
 
 + ```>numpy-1.7.0```
 
