@@ -2,10 +2,10 @@
 
 from __future__ import unicode_literals
 
+import numpy as np
 import unittest
 
-import numpy as np
-import entropy as ent
+from pyentrp import entropy as ent
 
 TIME_SERIES = [1, 1, 1, 2, 3, 4, 5]
 TIME_SERIES_STRING = '1112345'
