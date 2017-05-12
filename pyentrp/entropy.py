@@ -233,13 +233,14 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
 
 
 # TODO add tests
-def composite_multiscale_entropy(time_series, sample_length, scale):
+def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=None):
     """Calculate the Composite Multiscale Entropy of the given time series.
 
     Args:
         time_series: Time series for analysis
         sample_length: Number of sequential points of the time series
         scale: Scale factor
+        tolerance: Tolerance (default = 0.1...0.2 * std(time_series))
 
     Returns:
         Vector containing Composite Multiscale Entropy
@@ -249,11 +250,10 @@ def composite_multiscale_entropy(time_series, sample_length, scale):
             composite multiscale entropy." Entropy 15.3 (2013): 1069-1084.
     """
     cmse = np.zeros((1, scale))
-    r = np.std(time_series) * 0.15
 
     for i in range(scale):
         for j in range(i):
             tmp = util_granulate_time_series(time_series[j:], i + 1)
-            cmse[i] += sample_entropy(tmp, sample_length, r) / (i + 1)
+            cmse[i] += sample_entropy(tmp, sample_length, tolerance) / (i + 1)
 
     return cmse
