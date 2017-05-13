@@ -2,10 +2,10 @@ from distutils.core import setup
 
 setup(
     name='pyentrp',
-    version='0.3.0',
+    version='0.3.1',
     description='Functions on top of NumPy for computing different types of entropy',
     url='https://github.com/nikdon/pyEntropy',
-    download_url='https://github.com/nikdon/pyEntropy/archive/0.3.0.tar.gz',
+    download_url='https://github.com/nikdon/pyEntropy/archive/0.3.1.tar.gz',
     author='Nikolay Donets',
     author_email='nd.startup@gmail.com',
     maintainer='Nikolay Donets',
