@@ -141,13 +141,14 @@ def sample_entropy(time_series, sample_length, tolerance=None):
     return se
 
 
-def multiscale_entropy(time_series, sample_length, tolerance):
+def multiscale_entropy(time_series, scale_factor, tolerance, sample_length=2):
     """Calculate the Multiscale Entropy of the given time series considering
     different time-scales of the time series.
 
     Args:
         time_series: Time series for analysis
-        sample_length: Bandwidth or group of points
+        scale_factor: Calculate MSE upto this sized scale factor
+        sample_length: Number of sequential points of the time series - input to sample_entropy
         tolerance: Tolerance (default = 0.1...0.2 * std(time_series))
 
     Returns:
@@ -155,6 +156,7 @@ def multiscale_entropy(time_series, sample_length, tolerance):
 
     Reference:
         [1] http://en.pudn.com/downloads149/sourcecode/math/detail646216_en.html
+        [2] https://dbiom.org/files/publications/Peng_MultiscaleEntropyAnalysisComplexPhysiologicTimeSeries.pdf
     """
     n = len(time_series)
     mse = np.zeros((1, sample_length))
@@ -166,7 +168,7 @@ def multiscale_entropy(time_series, sample_length, tolerance):
             num = sum(time_series[j * (i + 1): (j + 1) * (i + 1)])
             den = i + 1
             temp_ts[j] = float(num) / float(den)
-        se = sample_entropy(temp_ts, 1, tolerance)
+        se = sample_entropy(temp_ts, sample_length, tolerance)
         mse[0, i] = se
 
     return mse[0]
