@@ -159,9 +159,9 @@ def multiscale_entropy(time_series, scale_factor, tolerance, sample_length=2):
         [2] https://dbiom.org/files/publications/Peng_MultiscaleEntropyAnalysisComplexPhysiologicTimeSeries.pdf
     """
     n = len(time_series)
-    mse = np.zeros((1, sample_length))
+    mse = np.zeros((1, scale_factor))
 
-    for i in range(sample_length):
+    for i in range(scale_factor):
         b = int(np.fix(n / (i + 1)))
         temp_ts = [0] * int(b)
         for j in range(b):
