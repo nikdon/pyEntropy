@@ -5,6 +5,19 @@ from __future__ import unicode_literals
 import itertools
 import numpy as np
 
+def util_hash_term(perm):
+    """Associate uniqe number to a permutation.
+    
+    Args:
+        perm: list of permutation elements. Each element in perm must be integer and <= N, where N = len(perm). For example [2,0,1] or [2,3,0,1].
+        
+    Returns:  int
+    
+    Added by Jakob Dreyer, 2018, Dept Bioinformatics, H Lundbcek A/S, Denmark"""
+    
+    deg = len(perm)
+    return sum([perm[k]*deg**k for k in range(deg)])
+
 
 def util_pattern_space(time_series, lag, dim):
     """Create a set of sequences with given lag and dimension
@@ -192,14 +205,14 @@ def permutation_entropy(time_series, m, delay):
     """
     n = len(time_series)
     permutations = np.array(list(itertools.permutations(range(m))))
+    hashlist = [util_hash_term(perm) for perm in permutations]
     c = [0] * len(permutations)
 
     for i in range(n - delay * (m - 1)):
         # sorted_time_series =    np.sort(time_series[i:i+delay*m:delay], kind='quicksort')
         sorted_index_array = np.array(np.argsort(time_series[i:i + delay * m:delay], kind='quicksort'))
-        for j in range(len(permutations)):
-            if abs(permutations[j] - sorted_index_array).any() == 0:
-                c[j] += 1
+        hashvalue = util_hash_term(sorted_index_array);
+        c[np.argwhere(hashlist == hashvalue)[0][0]] += 1
 
     c = [element for element in c if element != 0]
     p = np.divide(np.array(c), float(sum(c)))
