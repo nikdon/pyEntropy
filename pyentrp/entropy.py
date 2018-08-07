@@ -6,12 +6,13 @@ import itertools
 import numpy as np
 
 def util_hash_term(perm):
-    """Associate uniqe number to a permutation.
+    """Associate unique integer to a permutation.
     
     Args:
         perm: list of permutation elements. Each element in perm must be integer and <= N, where N = len(perm). For example [2,0,1] or [2,3,0,1].
         
-    Returns:  int
+    Returns:  
+        int
     
     Added by Jakob Dreyer, 2018, Dept Bioinformatics, H Lundbcek A/S, Denmark"""
     
