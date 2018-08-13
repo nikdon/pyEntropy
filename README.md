@@ -1,6 +1,6 @@
 # pyEntropy (pyEntrp)
 
-[![pypi](https://img.shields.io/badge/pypi-0.3.1-green.svg)](https://pypi.python.org/pypi/pyentrp/0.3.1)
+[![pypi](https://img.shields.io/badge/pypi-0.3.2-green.svg)](https://pypi.python.org/pypi/pyentrp/0.3.2)
 [![Build Status](https://travis-ci.org/nikdon/pyEntropy.svg?branch=master)](https://travis-ci.org/nikdon/pyEntropy)
 [![codecov](https://codecov.io/gh/nikdon/pyEntropy/branch/master/graph/badge.svg)](https://codecov.io/gh/nikdon/pyEntropy)
 ![py27 status](https://img.shields.io/badge/python2.7-supported-green.svg)
