@@ -6,6 +6,10 @@
 ![py27 status](https://img.shields.io/badge/python2.7-supported-green.svg)
 ![py36 status](https://img.shields.io/badge/python3.6.1-supported-green.svg)
 
+1. [Quick start](#quick-start)
+2. [Usage](#usage)
+3. [Contributors and participation](#contribution-and-participation)
+
 This is a small set of functions on top of NumPy that help to compute different types of entropy for time series analysis.
 
 Currently available:
@@ -17,7 +21,7 @@ Currently available:
 + Permutation Entropy ```permutation_entropy```
 + Multiscale Permutation Entropy ```multiscale_permutation_entropy```
 
-## Install
+## Quick start
 
 `pip install pyentrp`
 
@@ -36,5 +40,12 @@ sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
 ## Requirements:
 
 + ```>numpy-1.7.0```
+
+## Contributors and participation
+
+* [Nikolay Donets](https://github.com/nikdon)
+* [Jakob Dreyer](https://github.com/jakobdreyer)
+
+Contributions are always welcome :)
 
 [![Analytics](https://ga-beacon.appspot.com/UA-91956314-1/pyEntropy/readme?pixel)](https://github.com/igrigorik/ga-beacon)
