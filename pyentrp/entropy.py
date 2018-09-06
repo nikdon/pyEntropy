@@ -101,13 +101,13 @@ def shannon_entropy(time_series):
     return ent
 
 
-def sample_entropy(timeseries, m, r = None):
-    """Calculates the sample entropy of degree m of a timeseries.
+def sample_entropy(time_series, m, tol = None):
+    """Calculates the sample entropy of degree m of a time_series.
     
     This method uses chebychev norm and searches iteratively. It is quite fast for random data, but can be slower is there is structure in the time series. 
     
     Args:
-        timeseries: numpy array of time series
+        time_series: numpy array of time series
         m: length of template vector
         r: tolerance (defaults to 0.1 * std(time_series)))
     Returns: 
@@ -120,21 +120,21 @@ def sample_entropy(timeseries, m, r = None):
             of biological signals
             """
         
-    if r == None:
-        r = 0.1*np.std(timeseries)
+    if tol is None:
+        tol = 0.1*np.std(time_series)
 
-    n = len(timeseries)
+    n = len(time_series)
     Ntemp = 0;
     Ntemp_plus = 0;
     for i in range(n-m-1):
-        template = timeseries[i:(i+m+1)];#We have 'm+1' elements in the template
-        remtimeseries = timeseries[i+1:]
+        template = time_series[i:(i+m+1)];#We have 'm+1' elements in the template
+        rem_time_series = time_series[i+1:]
         
-        """Search for matches in remtimeseries. First we look for match with template[0]. 
+        """Search for matches in remtime_series. First we look for match with template[0]. 
         We then select the neighbors of these that also match next elements """
         
         "Create a list with those indices in the time series that match the first element in template"
-        searchlist = np.nonzero(np.abs(remtimeseries - template[0]) < r)[0]
+        searchlist = np.nonzero(np.abs(rem_time_series - template[0]) < tol)[0]
 
         go = len(searchlist) > 0;
         
@@ -153,10 +153,10 @@ def sample_entropy(timeseries, m, r = None):
             nextindxlist = nextindxlist[nextindxlist < n - 1 - i]
            
             "This is the list of elements that we shopuld compare with the next entry in the template vector:"
-            nextcandidates = remtimeseries[nextindxlist]
+            nextcandidates = rem_time_series[nextindxlist]
             
-            "Hitlist is bool list and true where next timeseries elements match next template elements"
-            hitlist = np.abs(nextcandidates - template[length]) < r
+            "Hitlist is bool list and true where next time_series elements match next template elements"
+            hitlist = np.abs(nextcandidates - template[length]) < tol
             "reduce the search list to those elements that surviced this round"
             searchlist = nextindxlist[hitlist]
            
