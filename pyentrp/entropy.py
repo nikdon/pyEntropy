@@ -14,7 +14,7 @@ def util_hash_term(perm):
     Returns:  
         int
     
-    Added by Jakob Dreyer, 2018, Dept Bioinformatics, H Lundbcek A/S, Denmark"""
+    Added by Jakob Dreyer, 2018, Dept Bioinformatics, H Lundbeck A/S, Denmark"""
     
     deg = len(perm)
     return sum([perm[k]*deg**k for k in range(deg)])
