@@ -63,9 +63,8 @@ def util_granulate_time_series(time_series, scale):
     """
     n = len(time_series)
     b = int(np.fix(n / scale))
-    cts = [0] * b
-    for i in range(b):
-        cts[i] = np.mean(time_series[i * scale: (i + 1) * scale])
+    temp = np.reshape(time_series[0:b*scale], (b, scale))
+    cts = np.mean(temp, axis = 1)
     return cts
 
 
