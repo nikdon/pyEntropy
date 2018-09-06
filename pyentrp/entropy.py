@@ -120,7 +120,8 @@ def sample_entropy(timeseries, m, r = None):
             of biological signals
             """
         
-    
+    if r == None:
+        r = 0.1*np.std(timeseries)
 
     n = len(timeseries)
     Ntemp = 0;
