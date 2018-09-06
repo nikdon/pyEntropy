@@ -101,57 +101,83 @@ def shannon_entropy(time_series):
     return ent
 
 
-def sample_entropy(time_series, sample_length, tolerance=None):
-    """Calculate and return Sample Entropy of the given time series.
-    Distance between two vectors defined as Euclidean distance and can
-    be changed in future releases
-
+def sample_entropy(timeseries, m, r = None):
+    """Calculates the sample entropy of degree m of a timeseries.
+    
+    This method uses chebychev norm and searches iteratively. It is quite fast for random data, but can be slower is there is structure in the time series. 
+    
     Args:
-        time_series: Vector or string of the sample data
-        sample_length: Number of sequential points of the time series
-        tolerance: Tolerance (default = 0.1...0.2 * std(time_series))
-
-    Returns:
-        Vector containing Sample Entropy (float)
-
+        timeseries: numpy array of time series
+        m: length of template vector
+        r: tolerance (defaults to 0.1 * std(time_series)))
+    Returns: 
+        Sample entropy (float)
+        
     References:
         [1] http://en.wikipedia.org/wiki/Sample_Entropy
         [2] http://physionet.incor.usp.br/physiotools/sampen/
         [3] Madalena Costa, Ary Goldberger, CK Peng. Multiscale entropy analysis
             of biological signals
-    """
-    if tolerance is None:
-        tolerance = 0.1 * np.std(time_series)
+            """
+        
+    
 
-    n = len(time_series)
-    prev = np.zeros(n)
-    curr = np.zeros(n)
-    A = np.zeros((sample_length, 1))  # number of matches for m = [1,...,template_length - 1]
-    B = np.zeros((sample_length, 1))  # number of matches for m = [1,...,template_length]
+    n = len(timeseries)
+    Ntemp = 0;
+    Ntemp_plus = 0;
+    for i in range(n-m-1):
+        template = timeseries[i:(i+m+1)];#We have 'm+1' elements in the template
+        remtimeseries = timeseries[i+1:]
+        
+        """Search for matches in remtimeseries. First we look for match with template[0]. 
+        We then select the neighbors of these that also match next elements """
+        
+        "Create a list with those indices in the time series that match the first element in template"
+        searchlist = np.nonzero(np.abs(remtimeseries - template[0]) < r)[0]
 
-    for i in range(n - 1):
-        nj = n - i - 1
-        ts1 = time_series[i]
-        for jj in range(nj):
-            j = jj + i + 1
-            if abs(time_series[j] - ts1) < tolerance:  # distance between two vectors
-                curr[jj] = prev[jj] + 1
-                temp_ts_length = min(sample_length, curr[jj])
-                for m in range(int(temp_ts_length)):
-                    A[m] += 1
-                    if j < n - 1:
-                        B[m] += 1
-            else:
-                curr[jj] = 0
-        for j in range(nj):
-            prev[j] = curr[j]
+        go = len(searchlist) > 0;
+        
+        length = 1;
+       
+        if length == m:
+            Ntemp += len(searchlist)
+        
+        """This while loop keeps reducing the searchlist by also comparing next elements making the templtates longer. 
+        It will stop if there are no elements that match or if we reach m+1-length-templates. """
+        while go:
+            
+            "Shift the index 1 step to the right in order to find elements in the time series next to the ones we found:"
+            nextindxlist = searchlist + 1;
+            "remove elements to close to the end:"
+            nextindxlist = nextindxlist[nextindxlist < n - 1 - i]
+           
+            "This is the list of elements that we shopuld compare with the next entry in the template vector:"
+            nextcandidates = remtimeseries[nextindxlist]
+            
+            "Hitlist is bool list and true where next timeseries elements match next template elements"
+            hitlist = np.abs(nextcandidates - template[length]) < r
+            "reduce the search list to those elements that surviced this round"
+            searchlist = nextindxlist[hitlist]
+           
+            if length == m-1:
+                Ntemp += sum(hitlist)
+            elif length == m :
+                Ntemp_plus += sum(hitlist)
+            
+           
+            length += 1;
+            go = any(hitlist) and length < m + 1    
+            
+            
+    #print('Ntemp m', Ntemp)
+    #print('Ntemp m+1', Ntemp_plus)
+    if Ntemp > 0:
+        sampen =  - np.log(Ntemp_plus/Ntemp)       
+    else:
+        sampen = np.inf
+        
+    return sampen
 
-    N = n * (n - 1) / 2
-    B = np.vstack(([N], B[:sample_length - 1]))
-    similarity_ratio = A / B
-    se = - np.log(similarity_ratio)
-    se = np.reshape(se, -1)
-    return se
 
 
 def multiscale_entropy(time_series, sample_length, tolerance):
