@@ -181,7 +181,7 @@ def sample_entropy(time_series, m, tol = None):
 
 
 
-def multiscale_entropy(time_series, sample_length, tolerance):
+def multiscale_entropy(time_series, sample_length, tolerance = None, maxscale = None):
     """Calculate the Multiscale Entropy of the given time series considering
     different time-scales of the time series.
 
@@ -196,20 +196,19 @@ def multiscale_entropy(time_series, sample_length, tolerance):
     Reference:
         [1] http://en.pudn.com/downloads149/sourcecode/math/detail646216_en.html
     """
-    n = len(time_series)
-    mse = np.zeros((1, sample_length))
-
-    for i in range(sample_length):
-        b = int(np.fix(n / (i + 1)))
-        temp_ts = [0] * int(b)
-        for j in range(b):
-            num = sum(time_series[j * (i + 1): (j + 1) * (i + 1)])
-            den = i + 1
-            temp_ts[j] = float(num) / float(den)
-        se = sample_entropy(temp_ts, 1, tolerance)
-        mse[0, i] = se
-
-    return mse[0]
+    
+    if tolerance is None:
+        tolerance = 0.1*np.std(time_series)
+    if maxscale is None:
+        maxscale = len(time_series)
+        
+    mse = np.zeros(maxscale)  
+    
+    for i in range(maxscale):
+        temp = util_granulate_time_series(time_series, i+1)
+        mse[i] = sample_entropy(temp, sample_length, tolerance)
+        
+    return mse
 
 
 def permutation_entropy(time_series, m, delay):
