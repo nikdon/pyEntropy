@@ -124,8 +124,9 @@ def sample_entropy(time_series, m, tol = None):
         tol = 0.1*np.std(time_series)
 
     n = len(time_series)
-    Ntemp = 0;
-    Ntemp_plus = 0;
+    Ntemp = 0.0;
+    Ntemp_plus = 0.0;
+    
     for i in range(n-m-1):
         template = time_series[i:(i+m+1)];#We have 'm+1' elements in the template
         rem_time_series = time_series[i+1:]
@@ -161,9 +162,9 @@ def sample_entropy(time_series, m, tol = None):
             searchlist = nextindxlist[hitlist]
            
             if length == m-1:
-                Ntemp += sum(hitlist)
+                Ntemp += np.sum(hitlist)
             elif length == m :
-                Ntemp_plus += sum(hitlist)
+                Ntemp_plus += np.sum(hitlist)
             
            
             length += 1;
