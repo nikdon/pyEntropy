@@ -142,13 +142,9 @@ def sample_entropy(time_series, sample_length, tolerance = None):
     
     
     for i in range(n - M - 1):
-        template = time_series[i:(i+M+1)];#We have 'm+1' elements in the template
+        template = time_series[i:(i+M+1)];#We have 'M+1' elements in the template
         rem_time_series = time_series[i+1:]
-        
-        """Search for matches in remtime_series. First we look for match with template[0]. 
-        We then select the neighbors of these that also match next elements """
-        
-        "Create a list with those indices in the time series that match the first element in template"
+   
         searchlist = np.nonzero(np.abs(rem_time_series - template[0]) < tolerance)[0]
 
         go = len(searchlist) > 0;
@@ -157,26 +153,16 @@ def sample_entropy(time_series, sample_length, tolerance = None):
         
         Ntemp[length] += len(searchlist)
         
-        """This while loop keeps reducing the searchlist by also comparing next elements making the templtates longer. 
-        It will stop if there are no elements that match or if we reach m+1-length-templates. """
         while go:
             length += 1
-            "Shift the index 1 step to the right in order to find elements in the time series next to the ones we found:"
             nextindxlist = searchlist + 1;
-            "remove elements to close to the end:"
-            nextindxlist = nextindxlist[nextindxlist < n - 1 - i]
-           
-            "This is the list of elements that we shopuld compare with the next entry in the template vector:"
+            nextindxlist = nextindxlist[nextindxlist < n - 1 - i]#Remove candidates too close to the end          
             nextcandidates = rem_time_series[nextindxlist]
-            
-            "Hitlist is bool list and true where next time_series elements match next template elements"
             hitlist = np.abs(nextcandidates - template[length-1]) < tolerance
-            "reduce the search list to those elements that surviced this round"
             searchlist = nextindxlist[hitlist]
            
             Ntemp[length] += np.sum(hitlist)
-            
-           
+                       
             go = any(hitlist) and length < M + 1    
             
     
