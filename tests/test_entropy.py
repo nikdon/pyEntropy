@@ -27,7 +27,7 @@ class TestEntropy(unittest.TestCase):
         self.assertEqual(round(ent.shannon_entropy(TIME_SERIES), 5), SHANNON_ENTROPY)
 
     def test_sampleEntropy(self):
-        ts = np.array(TS_SAMPLE_ENTROPY)
+        ts = TS_SAMPLE_ENTROPY
         std_ts = np.std(ts)
         sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
         np.testing.assert_array_equal(np.around(sample_entropy, 8), np.array([2.21187685, 2.12087873, 2.3826278 , 1.79175947]))
