@@ -98,7 +98,6 @@ def shannon_entropy(time_series):
     for freq in freq_list:
         ent += freq * np.log2(freq)
     ent = -ent
-
     return ent
 
 
@@ -126,7 +125,7 @@ def sample_entropy(time_series, sample_length, tolerance = None):
         [2] http://physionet.incor.usp.br/physiotools/sampen/
         [3] Madalena Costa, Ary Goldberger, CK Peng. Multiscale entropy analysis
             of biological signals
-            """
+    """
     #The code below follows the sample length convention of Ref [1] so:
     M = sample_length - 1;
 
@@ -168,9 +167,7 @@ def sample_entropy(time_series, sample_length, tolerance = None):
 
 
     sampen =  - np.log(Ntemp[1:] / Ntemp[:-1])
-
     return sampen
-
 
 
 def multiscale_entropy(time_series, sample_length, tolerance = None, maxscale = None):
@@ -200,7 +197,6 @@ def multiscale_entropy(time_series, sample_length, tolerance = None, maxscale = 
     for i in range(maxscale):
         temp = util_granulate_time_series(time_series, i+1)
         mse[i] = sample_entropy(temp, sample_length, tolerance)[-1]
-
     return mse
 
 
@@ -210,13 +206,13 @@ def permutation_entropy(time_series, m=3, delay=1, normalize=False):
     Args:
         time_series : list or np.array
             Time series for analysis
-        m : order
+        m : int
             Order of permutation entropy
-        delay : delay
+        delay : int
             Time delay
         normalize : bool
             If True, divide by log2(factorial(m)) to normalize the entropy
-            between 0 and 1.
+            between 0 and 1. Otherwise, return the permutation entropy in bit.
 
     Returns:
         pe : float
@@ -295,5 +291,4 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
         for j in range(i):
             tmp = util_granulate_time_series(time_series[j:], i + 1)
             cmse[i] += sample_entropy(tmp, sample_length, tolerance) / (i + 1)
-
     return cmse
