@@ -237,7 +237,7 @@ def permutation_entropy(time_series, m=3, delay=1, normalize=False):
 
     c = [element for element in c if element != 0]
     p = np.divide(np.array(c), float(sum(c)))
-    pe = -sum(p * np.log(p) / np.log(2))
+    pe = -sum(p * np.log2(p))
     if normalize:
         pe /= np.log2(factorial(m))
     return pe
