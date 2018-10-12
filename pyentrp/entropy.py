@@ -4,18 +4,20 @@ from __future__ import unicode_literals
 
 import itertools
 import numpy as np
+from math import factorial
 
 def util_hash_term(perm):
     """Associate unique integer to a permutation.
-    
+
     Args:
         perm: list of permutation elements. Each element in perm must be integer and <= N, where N = len(perm). For example [2,0,1] or [2,3,0,1].
-        
-    Returns:  
+
+    Returns:
         int
-    
-    Added by Jakob Dreyer, 2018, Dept Bioinformatics, H Lundbeck A/S, Denmark"""
-    
+
+    Added by Jakob Dreyer, 2018, Dept Bioinformatics, H Lundbeck A/S, Denmark
+    """
+
     deg = len(perm)
     return sum([perm[k]*deg**k for k in range(deg)])
 
@@ -30,7 +32,6 @@ def util_pattern_space(time_series, lag, dim):
 
     Returns:
         2D array of vectors
-
     """
     n = len(time_series)
 
@@ -103,71 +104,71 @@ def shannon_entropy(time_series):
 
 def sample_entropy(time_series, sample_length, tolerance = None):
     """Calculates the sample entropy of degree m of a time_series.
-    
-    This method uses chebychev norm. 
-    It is quite fast for random data, but can be slower is there is 
-    structure in the input time series. 
-    
+
+    This method uses chebychev norm.
+    It is quite fast for random data, but can be slower is there is
+    structure in the input time series.
+
     Args:
         time_series: numpy array of time series
         sample_length: length of longest template vector
         tolerance: tolerance (defaults to 0.1 * std(time_series)))
-    Returns: 
-        Array of sample entropies: 
+    Returns:
+        Array of sample entropies:
             SE[k] is ratio "#templates of length k+1" / "#templates of length k"
             where #templates of length 0" = n*(n - 1) / 2, by definition
     Note:
         The parameter 'sample_length' is equal to m + 1 in Ref[1].
-        
-        
+
+
     References:
         [1] http://en.wikipedia.org/wiki/Sample_Entropy
         [2] http://physionet.incor.usp.br/physiotools/sampen/
         [3] Madalena Costa, Ary Goldberger, CK Peng. Multiscale entropy analysis
             of biological signals
             """
-    #The code below follows the sample length convention of Ref [1] so: 
-    M = sample_length - 1; 
-    
-    time_series = np.array(time_series)  
+    #The code below follows the sample length convention of Ref [1] so:
+    M = sample_length - 1;
+
+    time_series = np.array(time_series)
     if tolerance is None:
         tolerance = 0.1*np.std(time_series)
 
     n = len(time_series)
-    
-    #Ntemp is a vector that holds the number of matches. N[k] holds matches templates of length k 
+
+    #Ntemp is a vector that holds the number of matches. N[k] holds matches templates of length k
     Ntemp = np.zeros(M + 2)
-    #Templates of length 0 matches by definition: 
+    #Templates of length 0 matches by definition:
     Ntemp[0] = n*(n - 1) / 2
-    
-    
+
+
     for i in range(n - M - 1):
         template = time_series[i:(i+M+1)];#We have 'M+1' elements in the template
         rem_time_series = time_series[i+1:]
-   
+
         searchlist = np.nonzero(np.abs(rem_time_series - template[0]) < tolerance)[0]
 
         go = len(searchlist) > 0;
-        
+
         length = 1;
-        
+
         Ntemp[length] += len(searchlist)
-        
+
         while go:
             length += 1
             nextindxlist = searchlist + 1;
-            nextindxlist = nextindxlist[nextindxlist < n - 1 - i]#Remove candidates too close to the end          
+            nextindxlist = nextindxlist[nextindxlist < n - 1 - i]#Remove candidates too close to the end
             nextcandidates = rem_time_series[nextindxlist]
             hitlist = np.abs(nextcandidates - template[length-1]) < tolerance
             searchlist = nextindxlist[hitlist]
-           
+
             Ntemp[length] += np.sum(hitlist)
-                       
-            go = any(hitlist) and length < M + 1    
-            
-    
-    sampen =  - np.log(Ntemp[1:] / Ntemp[:-1])       
-        
+
+            go = any(hitlist) and length < M + 1
+
+
+    sampen =  - np.log(Ntemp[1:] / Ntemp[:-1])
+
     return sampen
 
 
@@ -187,32 +188,39 @@ def multiscale_entropy(time_series, sample_length, tolerance = None, maxscale = 
     Reference:
         [1] http://en.pudn.com/downloads149/sourcecode/math/detail646216_en.html
     """
-    
+
     if tolerance is None:
         #we need to fix the tolerance at this level. If it remains 'None' it will be changed in call to sample_entropy()
         tolerance = 0.1*np.std(time_series)
     if maxscale is None:
         maxscale = len(time_series)
-        
-    mse = np.zeros(maxscale)  
-    
+
+    mse = np.zeros(maxscale)
+
     for i in range(maxscale):
         temp = util_granulate_time_series(time_series, i+1)
         mse[i] = sample_entropy(temp, sample_length, tolerance)[-1]
-        
+
     return mse
 
 
-def permutation_entropy(time_series, m, delay):
+def permutation_entropy(time_series, m=3, delay=1, normalize=False):
     """Calculate the Permutation Entropy
 
     Args:
-        time_series: Time series for analysis
-        m: Order of permutation entropy
-        delay: Time delay
+        time_series : list or np.array
+            Time series for analysis
+        m : order
+            Order of permutation entropy
+        delay : delay
+            Time delay
+        normalize : bool
+            If True, divide by log2(factorial(m)) to normalize the entropy
+            between 0 and 1.
 
     Returns:
-        Vector containing Permutation Entropy
+        pe : float
+            Permutation Entropy
 
     Reference:
         [1] Massimiliano Zanin et al. Permutation Entropy and Its Main Biomedical and Econophysics Applications:
@@ -221,20 +229,21 @@ def permutation_entropy(time_series, m, delay):
             measure for time series. http://stubber.math-inf.uni-greifswald.de/pub/full/prep/2001/11.pdf
         [3] http://www.mathworks.com/matlabcentral/fileexchange/37289-permutation-entropy/content/pec.m
     """
-    n = len(time_series)
-    permutations = np.array(list(itertools.permutations(range(m))))
+    permutations = list(itertools.permutations(range(m)))
     hashlist = [util_hash_term(perm) for perm in permutations]
     c = [0] * len(permutations)
+    ran = np.arange(len(time_series) - delay * (m - 1))
+    step = ran + m * delay
 
-    for i in range(n - delay * (m - 1)):
-        # sorted_time_series =    np.sort(time_series[i:i+delay*m:delay], kind='quicksort')
-        sorted_index_array = np.array(np.argsort(time_series[i:i + delay * m:delay], kind='quicksort'))
-        hashvalue = util_hash_term(sorted_index_array);
-        c[np.argwhere(hashlist == hashvalue)[0][0]] += 1
+    for i in ran:
+        sorted_index_array = np.argsort(time_series[i:step[i]:delay], kind='quicksort')
+        c[np.nonzero(hashlist == util_hash_term(sorted_index_array))[0][0]] += 1
 
     c = [element for element in c if element != 0]
     p = np.divide(np.array(c), float(sum(c)))
-    pe = -sum(p * np.log(p))
+    pe = -sum(p * np.log(p) / np.log(2))
+    if normalize:
+        pe /= np.log2(factorial(m))
     return pe
 
 
