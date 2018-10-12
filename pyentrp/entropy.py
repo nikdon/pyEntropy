@@ -200,46 +200,68 @@ def multiscale_entropy(time_series, sample_length, tolerance = None, maxscale = 
     return mse
 
 
-def permutation_entropy(time_series, m=3, delay=1, normalize=False):
-    """Calculate the Permutation Entropy
+def permutation_entropy(time_series, order=3, delay=1, normalize=False):
+    """Permutation Entropy.
 
-    Args:
-        time_series : list or np.array
-            Time series for analysis
-        m : int
-            Order of permutation entropy
-        delay : int
-            Time delay
-        normalize : bool
-            If True, divide by log2(factorial(m)) to normalize the entropy
-            between 0 and 1. Otherwise, return the permutation entropy in bit.
+    Parameters
+    ----------
+    x : list or np.array
+        Time series
+    order : int
+        Order of permutation entropy
+    delay : int
+        Time delay
+    normalize : bool
+        If True, divide by log2(factorial(m)) to normalize the entropy
+        between 0 and 1. Otherwise, return the permutation entropy in bit.
 
-    Returns:
-        pe : float
-            Permutation Entropy
+    Returns
+    -------
+    pe : float
+        Permutation Entropy
 
-    Reference:
-        [1] Massimiliano Zanin et al. Permutation Entropy and Its Main Biomedical and Econophysics Applications:
-            A Review. http://www.mdpi.com/1099-4300/14/8/1553/pdf
-        [2] Christoph Bandt and Bernd Pompe. Permutation entropy — a natural complexity
-            measure for time series. http://stubber.math-inf.uni-greifswald.de/pub/full/prep/2001/11.pdf
-        [3] http://www.mathworks.com/matlabcentral/fileexchange/37289-permutation-entropy/content/pec.m
+    References
+    ----------
+    .. [1] Massimiliano Zanin et al. Permutation Entropy and Its Main
+        Biomedical and Econophysics Applications: A Review.
+        http://www.mdpi.com/1099-4300/14/8/1553/pdf
+
+    .. [2] Christoph Bandt and Bernd Pompe. Permutation entropy — a natural
+        complexity measure for time series.
+        http://stubber.math-inf.uni-greifswald.de/pub/full/prep/2001/11.pdf
+
+    Examples
+    --------
+    1. Permutation entropy with order 2
+
+        >>> x = [4, 7, 9, 10, 6, 11, 3]
+        >>> # Return a value between 0 and log2(factorial(order))
+        >>> print(permutation_entropy(x, order=2))
+            0.918
+
+    2. Normalized permutation entropy with order 3
+
+        >>> x = [4, 7, 9, 10, 6, 11, 3]
+        >>> # Return a value comprised between 0 and 1.
+        >>> print(permutation_entropy(x, order=3, normalize=True))
+            0.589
     """
-    permutations = list(itertools.permutations(range(m)))
+    x = np.array(time_series)
+    permutations = list(itertools.permutations(range(order)))
     hashlist = [util_hash_term(perm) for perm in permutations]
-    c = [0] * len(permutations)
-    ran = np.arange(len(time_series) - delay * (m - 1))
-    step = ran + m * delay
+    c = np.zeros(len(permutations), dtype=int)
+    ran = np.arange(x.size - delay * (order - 1), dtype=int)
+    step = ran + order * delay
 
     for i in ran:
-        sorted_index_array = np.argsort(time_series[i:step[i]:delay], kind='quicksort')
-        c[np.nonzero(hashlist == util_hash_term(sorted_index_array))[0][0]] += 1
+        sorted_idx = x[i:step[i]:delay].argsort(kind='quicksort')
+        c[np.nonzero(hashlist == util_hash_term(sorted_idx))[0][0]] += 1
 
-    c = [element for element in c if element != 0]
-    p = np.divide(np.array(c), float(sum(c)))
-    pe = -sum(p * np.log2(p))
+    c = c[np.nonzero(c)]
+    p = np.divide(c, c.sum())
+    pe = -np.multiply(p, np.log2(p)).sum()
     if normalize:
-        pe /= np.log2(factorial(m))
+        pe /= np.log2(factorial(order))
     return pe
 
 
@@ -263,7 +285,7 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     mspe = []
     for i in range(scale):
         coarse_time_series = util_granulate_time_series(time_series, i + 1)
-        pe = permutation_entropy(coarse_time_series, m, delay)
+        pe = permutation_entropy(coarse_time_series, order=m, delay=delay)
         mspe.append(pe)
     return mspe
 
