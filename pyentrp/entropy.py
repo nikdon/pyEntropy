@@ -258,7 +258,8 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
         c[np.nonzero(hashlist == util_hash_term(sorted_idx))[0][0]] += 1
 
     c = c[np.nonzero(c)]
-    p = np.divide(c, c.sum())
+    # Use np.true_divide for Python 2 compatibility
+    p = np.true_divide(c, c.sum())
     pe = -np.multiply(p, np.log2(p)).sum()
     if normalize:
         pe /= np.log2(factorial(order))
