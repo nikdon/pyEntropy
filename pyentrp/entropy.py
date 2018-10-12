@@ -205,7 +205,7 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
 
     Parameters
     ----------
-    x : list or np.array
+    time_series : list or np.array
         Time series
     order : int
         Order of permutation entropy
