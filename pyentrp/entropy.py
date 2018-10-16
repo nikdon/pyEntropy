@@ -239,6 +239,13 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
         complexity measure for time series.
         http://stubber.math-inf.uni-greifswald.de/pub/full/prep/2001/11.pdf
 
+    Notes
+    -----
+    Last updated (Oct 2018) by Raphael Vallat (raphaelvallat9@gmail.com):
+    - Major speed improvements
+    - Use of base 2 instead of base e
+    - Added normalization
+
     Examples
     --------
     1. Permutation entropy with order 2
@@ -256,8 +263,7 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
             0.589
     """
     x = np.array(time_series)
-    ran_order = range(order)
-    hashmult = np.power(order, ran_order)
+    hashmult = np.power(order, np.arange(order))
     # Embed x and sort the order of permutations
     sorted_idx = _embed(x, order=order, delay=delay).argsort(kind='quicksort')
     # Associate unique integer to each permutations
