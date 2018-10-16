@@ -1,9 +1,0 @@
-[
-  "tests/test_entropy.py::TestEntropy::test_multiScaleEntropy",
-  "tests/test_entropy.py::TestEntropy::test_multiScalePermutationEntropy",
-  "tests/test_entropy.py::TestEntropy::test_permutationEntropy",
-  "tests/test_entropy.py::TestEntropy::test_sampleEntropy",
-  "tests/test_entropy.py::TestEntropy::test_shannonEntropyInt",
-  "tests/test_entropy.py::TestEntropy::test_shannonEntropyString",
-  "tests/test_entropy.py::TestEntropy::test_utilSequence"
-]
