@@ -25,7 +25,7 @@ def _embed(x, order=3, delay=1):
         Embedded time-series.
     """
     N = len(x)
-    Y = np.zeros((order, N - (order - 1) * delay))
+    Y = np.empty((order, N - (order - 1) * delay))
     for i in range(order):
         Y[i] = x[i * delay:i * delay + Y.shape[1]]
     return Y.T
