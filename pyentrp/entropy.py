@@ -6,20 +6,29 @@ import itertools
 import numpy as np
 from math import factorial
 
-def util_hash_term(perm):
-    """Associate unique integer to a permutation.
 
-    Args:
-        perm: list of permutation elements. Each element in perm must be integer and <= N, where N = len(perm). For example [2,0,1] or [2,3,0,1].
+def _embed(x, order=3, delay=1):
+    """Time-delay embedding.
 
-    Returns:
-        int
+    Parameters
+    ----------
+    x : 1d-array, shape (n_times)
+        Time series
+    order : int
+        Embedding dimension (order)
+    delay : int
+        Delay.
 
-    Added by Jakob Dreyer, 2018, Dept Bioinformatics, H Lundbeck A/S, Denmark
+    Returns
+    -------
+    embedded : ndarray, shape (n_times - (order - 1) * delay, order)
+        Embedded time-series.
     """
-
-    deg = len(perm)
-    return sum([perm[k]*deg**k for k in range(deg)])
+    N = len(x)
+    Y = np.zeros((order, N - (order - 1) * delay))
+    for i in range(order):
+        Y[i] = x[i * delay:i * delay + Y.shape[1]]
+    return Y.T
 
 
 def util_pattern_space(time_series, lag, dim):
@@ -247,17 +256,14 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
             0.589
     """
     x = np.array(time_series)
-    permutations = list(itertools.permutations(range(order)))
-    hashlist = [util_hash_term(perm) for perm in permutations]
-    c = np.zeros(len(permutations), dtype=int)
-    ran = np.arange(x.size - delay * (order - 1), dtype=int)
-    step = ran + order * delay
-
-    for i in ran:
-        sorted_idx = x[i:step[i]:delay].argsort(kind='quicksort')
-        c[np.nonzero(hashlist == util_hash_term(sorted_idx))[0][0]] += 1
-
-    c = c[np.nonzero(c)]
+    ran_order = range(order)
+    hashmult = np.power(order, ran_order)
+    # Embed x and sort the order of permutations
+    sorted_idx = _embed(x, order=order, delay=delay).argsort(kind='quicksort')
+    # Associate unique integer to each permutations
+    hashval = (np.multiply(sorted_idx, hashmult)).sum(1)
+    # Return the counts
+    _, c = np.unique(hashval, return_counts=True)
     # Use np.true_divide for Python 2 compatibility
     p = np.true_divide(c, c.sum())
     pe = -np.multiply(p, np.log2(p)).sum()
