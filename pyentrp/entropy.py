@@ -78,6 +78,12 @@ def util_granulate_time_series(time_series, scale):
     return cts
 
 
+def util_rolling_window(a, window):
+    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+    strides = a.strides + (a.strides[-1],)
+    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
+
+
 def shannon_entropy(time_series):
     """Return the Shannon Entropy of the sample data.
 
@@ -327,3 +333,57 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
             tmp = util_granulate_time_series(time_series[j:], i + 1)
             cmse[i] += sample_entropy(tmp, sample_length, tolerance) / (i + 1)
     return cmse
+
+
+def weighted_permutation_entropy(time_series, order=3, normalize=False):
+    """Calculate the Weighted Permutation Entropy.
+
+    Weighted permutation entropy is based on the regular permutation entropy,
+    but puts additional weight on those windows that show a high variability
+    in the initial time series.
+
+    Parameters
+    ----------
+    time_series : list or np.array
+        Time series
+    order : int
+        Order of permutation entropy
+    normalize : bool
+        If True, divide by log2(factorial(m)) to normalize the entropy
+        between 0 and 1. Otherwise, return the permutation entropy in bit.
+    Returns
+    -------
+    pe : float
+        Weighted Permutation Entropy
+    References
+    ----------
+    .. [1] Bilal Fadlallah et al. Weighted-permutation entropy: A complexity
+    measure for time series incorporating amplitude information
+    https://link.aps.org/accepted/10.1103/PhysRevE.87.022911
+    """
+    x = np.array(time_series)
+    hashmult = np.power(order, np.arange(order))
+    # Embed x and sort the order of permutations
+
+    embedded = _embed(x, order=order)
+    sorted_idx = embedded.argsort(kind='quicksort')
+    weights = np.var(util_rolling_window(x, order), 1)
+    hashval = (np.multiply(sorted_idx, hashmult)).sum(1)
+    mapping = {}
+    for i in np.unique(hashval):
+        mapping[i] = np.where(hashval == i)[0] 
+    weighted_counts = dict.fromkeys(mapping)
+    for k, v in mapping.items():
+        weighted_count = 0
+        for i in v:
+            weighted_count += weights[i]
+        weighted_counts[k] = weighted_count    
+    # Associate unique integer to each permutations
+    # Return the counts
+    # Use np.true_divide for Python 2 compatibility
+    weighted_counts_array = np.array(list(weighted_counts.values()))
+    p = np.true_divide(weighted_counts_array, weighted_counts_array.sum())
+    pe = -np.multiply(p, np.log2(p)).sum()
+    if normalize:
+        pe /= np.log2(factorial(order))
+    return pe
