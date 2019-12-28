@@ -32,11 +32,11 @@ class TestEntropy(unittest.TestCase):
         ts = TS_SAMPLE_ENTROPY
         std_ts = np.std(ts)
         sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
-        np.testing.assert_array_equal(np.around(sample_entropy, 8), np.array([2.21187685, 2.12087873, 2.3826278 , 1.79175947]))
+        np.testing.assert_allclose(sample_entropy, np.array([2.26881823, 2.11119024, 2.33537492, 1.79175947]))
 
     def test_multiScaleEntropy(self):
         multi_scale_entropy = ent.multiscale_entropy(RANDOM_TIME_SERIES, 4, maxscale = 4 )
-        np.testing.assert_array_equal(np.round(multi_scale_entropy, 8), np.array([2.52572864, 2.33537492, 1.65292302, 1.86075234]))
+        np.testing.assert_allclose(multi_scale_entropy, np.array([2.52572864, 2.31911439, 1.65292302, 1.86075234]))
 
     def test_permutationEntropy(self):
         self.assertEqual(np.round(ent.permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1), 3), 0.918)
