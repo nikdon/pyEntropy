@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.6.0
+
+- [#15](https://github.com/nikdon/pyEntropy/pull/15) - Sample entropy ignores last `M` values (thanks @CSchoel)
+
 ## 0.5.0
 
 Due to changes to `permutation_entropy` this release might break compatibility with previous versions. 

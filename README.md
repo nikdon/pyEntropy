@@ -1,6 +1,6 @@
 # pyEntropy (pyEntrp)
 
-[![pypi](https://img.shields.io/badge/pypi-0.5.0-green.svg)](https://pypi.python.org/pypi/pyentrp/0.5.0)
+[![pypi](https://img.shields.io/badge/pypi-0.6.0-green.svg)](https://pypi.python.org/pypi/pyentrp/0.6.0)
 [![Build Status](https://travis-ci.org/nikdon/pyEntropy.svg?branch=master)](https://travis-ci.org/nikdon/pyEntropy)
 [![codecov](https://codecov.io/gh/nikdon/pyEntropy/branch/master/graph/badge.svg)](https://codecov.io/gh/nikdon/pyEntropy)
 ![py27 status](https://img.shields.io/badge/python2.7-supported-green.svg)
@@ -46,6 +46,7 @@ sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
 * [Nikolay Donets](https://github.com/nikdon)
 * [Jakob Dreyer](https://github.com/jakobdreyer)
 * [Raphael Vallat](https://github.com/raphaelvallat)
+* [Christopher Schölzel](https://github.com/CSchoel)
 
 Contributions are very welcome, documentation improvements/corrections, bug reports, even feature requests :)
 
