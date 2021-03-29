@@ -352,7 +352,7 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
 
         b = np.log2(pw)
         wpe = -np.dot(pw, b)
-        if normalize == True:
+        if normalize:
             wpe /= np.log2(factorial(order))
         return wpe
 
