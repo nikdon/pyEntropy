@@ -336,10 +336,10 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
             >>> print(permutation_entropy(x, order=3, normalize=True))
                 0.547
         """
-        data_embed = _embed(data, order=order, delay=delay)
+        x = _embed(time_series, order=order, delay=delay)
 
-        weights = np.var(data_embed, axis=1)
-        sorted_idx = data_embed.argsort(kind='quicksort', axis=1)
+        weights = np.var(x, axis=1)
+        sorted_idx = x.argsort(kind='quicksort', axis=1)
         motifs, c = np.unique(sorted_idx, return_counts=True, axis=0)
         pw = np.zeros(len(motifs))
 
