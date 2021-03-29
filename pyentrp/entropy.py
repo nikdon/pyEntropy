@@ -288,6 +288,76 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     return mspe
 
 
+def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False):
+        """Calculate the weighted permuation entropy. Weighted permutation
+        entropy captures the information in the amplitude of a signal where
+        standard permutation entropy only measures the information in the
+        ordinal pattern, "motif."
+
+        Parameters
+        ----------
+        time_series : list or np.array
+            Time series
+        order : int
+            Order of permutation entropy
+        delay : int
+            Time delay
+        normalize : bool
+            If True, divide by log2(factorial(m)) to normalize the entropy
+            between 0 and 1. Otherwise, return the permutation entropy in bit.
+
+        Returns
+        -------
+        wpe : float
+            Weighted Permutation Entropy
+
+        References
+        ----------
+        .. [1] Bilal Fadlallah, Badong Chen, Andreas Keil, and José Príncipe
+               Phys. Rev. E 87, 022911 – Published 20 February 2013
+
+        Notes
+        -----
+        Last updated (March 2021) by Samuel Dotson (samgdotson@gmail.com)
+
+        Examples
+        --------
+        1. Weighted permutation entropy with order 2
+
+            >>> x = [4, 7, 9, 10, 6, 11, 3]
+            >>> # Return a value between 0 and log2(factorial(order))
+            >>> print(permutation_entropy(x, order=2))
+                0.912
+
+        2. Normalized weighted permutation entropy with order 3
+
+            >>> x = [4, 7, 9, 10, 6, 11, 3]
+            >>> # Return a value comprised between 0 and 1.
+            >>> print(permutation_entropy(x, order=3, normalize=True))
+                0.547
+        """
+        data_embed = _embed(data, order=order, delay=delay)
+
+        weights = np.var(data_embed, axis=1)
+        sorted_idx = data_embed.argsort(kind='quicksort', axis=1)
+        motifs, c = np.unique(sorted_idx, return_counts=True, axis=0)
+        pw = np.zeros(len(motifs))
+
+        # TODO hashmap
+        for i, j in zip(weights, sorted_idx):
+            idx = int(np.where((j==motifs).sum(1)==order)[0])
+            pw[idx] += i
+
+        pw /= weights.sum()
+
+        b = np.log2(pw)
+        wpe = -np.dot(pw, b)
+        if normalize == True:
+            wpe /= np.log2(factorial(order))
+        return wpe
+
+
+
 # TODO add tests
 def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=None):
     """Calculate the Composite Multiscale Entropy of the given time series.
