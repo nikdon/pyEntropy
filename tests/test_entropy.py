@@ -44,6 +44,12 @@ class TestEntropy(unittest.TestCase):
         # Assert that a fully random vector has an entropy of 0.99999...
         self.assertEqual(np.round(ent.permutation_entropy(RANDOM_TIME_SERIES, order=3, delay=1, normalize=True), 3), 0.999)
 
+    def test_weightedPermuationEntropy(self):
+        self.assertEqual(np.round(ent.weighted_permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1), 3), 0.913)
+        self.assertEqual(np.round(ent.weighted_permutation_entropy(PERM_ENTROPY_BANDT, order=3, delay=1), 3), 1.414)
+        # Assert that a fully random vector has an entropy of 0.99999...
+        self.assertEqual(np.round(ent.weighted_permutation_entropy(RANDOM_TIME_SERIES, order=3, delay=1, normalize=True), 3), 0.999)
+
     def test_multiScalePermutationEntropy(self):
         np.testing.assert_array_equal(np.round(ent.multiscale_permutation_entropy(TS_SAMPLE_ENTROPY, 3, 5, 2), 4),
                                       np.array([2.4699, 2.5649]))
