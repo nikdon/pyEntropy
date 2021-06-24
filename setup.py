@@ -1,11 +1,16 @@
 from distutils.core import setup
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
 setup(
     name='pyentrp',
-    version='0.7.0',
+    version='0.7.1',
     description='Functions on top of NumPy for computing different types of entropy',
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url='https://github.com/nikdon/pyEntropy',
-    download_url='https://github.com/nikdon/pyEntropy/archive/0.7.0.tar.gz',
+    download_url='https://github.com/nikdon/pyEntropy/archive/0.7.1.tar.gz',
     author='Nikolay Donets',
     author_email='nd.startup@gmail.com',
     maintainer='Nikolay Donets',

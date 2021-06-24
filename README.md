@@ -1,10 +1,13 @@
 # pyEntropy (pyEntrp)
 
-[![pypi](https://img.shields.io/badge/pypi-0.7.0-green.svg)](https://pypi.python.org/pypi/pyentrp/0.7.0)
+[![pypi](https://img.shields.io/badge/pypi-0.7.1-green.svg)](https://pypi.python.org/pypi/pyentrp/0.7.1)
 [![Build Status](https://travis-ci.org/nikdon/pyEntropy.svg?branch=master)](https://travis-ci.org/nikdon/pyEntropy)
 [![codecov](https://codecov.io/gh/nikdon/pyEntropy/branch/master/graph/badge.svg)](https://codecov.io/gh/nikdon/pyEntropy)
 ![py27 status](https://img.shields.io/badge/python2.7-supported-green.svg)
-![py36 status](https://img.shields.io/badge/python3.6.1-supported-green.svg)
+![py36 status](https://img.shields.io/badge/python3.6-supported-green.svg)
+![py36 status](https://img.shields.io/badge/python3.7-supported-green.svg)
+![py36 status](https://img.shields.io/badge/python3.8-supported-green.svg)
+![py36 status](https://img.shields.io/badge/python3.9-supported-green.svg)
 
 1. [Quick start](#quick-start)
 2. [Usage](#usage)

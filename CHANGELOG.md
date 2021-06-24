@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.7.1
+
+- Minor changes to `setup.py` to make the project's page nice
+
 ## 0.7.0
 
 - [#19](https://github.com/nikdon/pyEntropy/pull/19) - `weighted_permutation_entropy`
