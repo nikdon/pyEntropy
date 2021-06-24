@@ -2,10 +2,10 @@ from distutils.core import setup
 
 setup(
     name='pyentrp',
-    version='0.6.0',
+    version='0.7.0',
     description='Functions on top of NumPy for computing different types of entropy',
     url='https://github.com/nikdon/pyEntropy',
-    download_url='https://github.com/nikdon/pyEntropy/archive/0.6.0.tar.gz',
+    download_url='https://github.com/nikdon/pyEntropy/archive/0.7.0.tar.gz',
     author='Nikolay Donets',
     author_email='nd.startup@gmail.com',
     maintainer='Nikolay Donets',
@@ -18,8 +18,15 @@ setup(
     ],
     test_suite="tests.test_entropy",
 
-    keywords=['entropy', 'python', 'sample entropy', 'multiscale entropy', 'permutation entropy',
-              'composite multiscale entropy'],
+    keywords=[
+        'python',
+        'entropy',
+        'sample entropy',
+        'multiscale entropy',
+        'permutation entropy',
+        'composite multiscale entropy',
+        'multiscale permutation entropy'
+    ],
 
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -36,6 +43,9 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
 
         'Topic :: Scientific/Engineering :: Bio-Informatics',
         'Topic :: Scientific/Engineering :: Information Analysis',

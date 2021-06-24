@@ -1,6 +1,6 @@
 # pyEntropy (pyEntrp)
 
-[![pypi](https://img.shields.io/badge/pypi-0.6.0-green.svg)](https://pypi.python.org/pypi/pyentrp/0.6.0)
+[![pypi](https://img.shields.io/badge/pypi-0.7.0-green.svg)](https://pypi.python.org/pypi/pyentrp/0.7.0)
 [![Build Status](https://travis-ci.org/nikdon/pyEntropy.svg?branch=master)](https://travis-ci.org/nikdon/pyEntropy)
 [![codecov](https://codecov.io/gh/nikdon/pyEntropy/branch/master/graph/badge.svg)](https://codecov.io/gh/nikdon/pyEntropy)
 ![py27 status](https://img.shields.io/badge/python2.7-supported-green.svg)
@@ -12,14 +12,13 @@
 
 This is a small set of functions on top of NumPy that help to compute different types of entropy for time series analysis.
 
-Currently available:
-
 + Shannon Entropy ```shannon_entropy```
 + Sample Entropy ```sample_entropy```
 + Multiscale Entropy ```multiscale_entropy```
 + Composite Multiscale Entropy ```composite_multiscale_entropy```
 + Permutation Entropy ```permutation_entropy```
 + Multiscale Permutation Entropy ```multiscale_permutation_entropy```
++ Weighted Permutation Entropy ```weighted_permutation_entropy```
 
 ## Quick start
 
@@ -47,6 +46,7 @@ sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
 * [Jakob Dreyer](https://github.com/jakobdreyer)
 * [Raphael Vallat](https://github.com/raphaelvallat)
 * [Christopher Schölzel](https://github.com/CSchoel)
+* [Sam Dotson](https://github.com/samgdotson)
 
 Contributions are very welcome, documentation improvements/corrections, bug reports, even feature requests :)
 

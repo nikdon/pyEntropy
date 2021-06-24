@@ -2,7 +2,6 @@
 
 from __future__ import unicode_literals
 
-import itertools
 import numpy as np
 from math import factorial
 
@@ -73,8 +72,8 @@ def util_granulate_time_series(time_series, scale):
     """
     n = len(time_series)
     b = int(np.fix(n / scale))
-    temp = np.reshape(time_series[0:b*scale], (b, scale))
-    cts = np.mean(temp, axis = 1)
+    temp = np.reshape(time_series[0:b * scale], (b, scale))
+    cts = np.mean(temp, axis=1)
     return cts
 
 
@@ -110,7 +109,7 @@ def shannon_entropy(time_series):
     return ent
 
 
-def sample_entropy(time_series, sample_length, tolerance = None):
+def sample_entropy(time_series, sample_length, tolerance=None):
     """Calculates the sample entropy of degree m of a time_series.
 
     This method uses chebychev norm.
@@ -135,36 +134,35 @@ def sample_entropy(time_series, sample_length, tolerance = None):
         [3] Madalena Costa, Ary Goldberger, CK Peng. Multiscale entropy analysis
             of biological signals
     """
-    #The code below follows the sample length convention of Ref [1] so:
-    M = sample_length - 1;
+    # The code below follows the sample length convention of Ref [1] so:
+    M = sample_length - 1
 
     time_series = np.array(time_series)
     if tolerance is None:
-        tolerance = 0.1*np.std(time_series)
+        tolerance = 0.1 * np.std(time_series)
 
     n = len(time_series)
 
-    #Ntemp is a vector that holds the number of matches. N[k] holds matches templates of length k
+    # Ntemp is a vector that holds the number of matches. N[k] holds matches templates of length k
     Ntemp = np.zeros(M + 2)
-    #Templates of length 0 matches by definition:
-    Ntemp[0] = n*(n - 1) / 2
-
+    # Templates of length 0 matches by definition:
+    Ntemp[0] = n * (n - 1) / 2
 
     for i in range(n - M - 1):
-        template = time_series[i:(i+M+1)];#We have 'M+1' elements in the template
-        rem_time_series = time_series[i+1:]
+        template = time_series[i:(i + M + 1)]  # We have 'M+1' elements in the template
+        rem_time_series = time_series[i + 1:]
 
-        searchlist = np.arange(len(rem_time_series) - M, dtype=np.int32)
-        for length in range(1, len(template)+1):
-            hitlist = np.abs(rem_time_series[searchlist] - template[length-1]) < tolerance
-            Ntemp[length] += np.sum(hitlist)
-            searchlist = searchlist[hitlist] + 1
+        search_list = np.arange(len(rem_time_series) - M, dtype=np.int32)
+        for length in range(1, len(template) + 1):
+            hit_list = np.abs(rem_time_series[search_list] - template[length - 1]) < tolerance
+            Ntemp[length] += np.sum(hit_list)
+            search_list = search_list[hit_list] + 1
 
-    sampen =  - np.log(Ntemp[1:] / Ntemp[:-1])
+    sampen = -np.log(Ntemp[1:] / Ntemp[:-1])
     return sampen
 
 
-def multiscale_entropy(time_series, sample_length, tolerance = None, maxscale = None):
+def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None):
     """Calculate the Multiscale Entropy of the given time series considering
     different time-scales of the time series.
 
@@ -181,15 +179,16 @@ def multiscale_entropy(time_series, sample_length, tolerance = None, maxscale = 
     """
 
     if tolerance is None:
-        #we need to fix the tolerance at this level. If it remains 'None' it will be changed in call to sample_entropy()
-        tolerance = 0.1*np.std(time_series)
+        # We need to fix the tolerance at this level
+        # If it remains 'None' it will be changed in call to sample_entropy()
+        tolerance = 0.1 * np.std(time_series)
     if maxscale is None:
         maxscale = len(time_series)
 
     mse = np.zeros(maxscale)
 
     for i in range(maxscale):
-        temp = util_granulate_time_series(time_series, i+1)
+        temp = util_granulate_time_series(time_series, i + 1)
         mse[i] = sample_entropy(temp, sample_length, tolerance)[-1]
     return mse
 
@@ -289,73 +288,72 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
 
 
 def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False):
-        """Calculate the weighted permuation entropy. Weighted permutation
-        entropy captures the information in the amplitude of a signal where
-        standard permutation entropy only measures the information in the
-        ordinal pattern, "motif."
+    """Calculate the weighted permutation entropy. Weighted permutation
+    entropy captures the information in the amplitude of a signal where
+    standard permutation entropy only measures the information in the
+    ordinal pattern, "motif."
 
-        Parameters
-        ----------
-        time_series : list or np.array
-            Time series
-        order : int
-            Order of permutation entropy
-        delay : int
-            Time delay
-        normalize : bool
-            If True, divide by log2(factorial(m)) to normalize the entropy
-            between 0 and 1. Otherwise, return the permutation entropy in bit.
+    Parameters
+    ----------
+    time_series : list or np.array
+        Time series
+    order : int
+        Order of permutation entropy
+    delay : int
+        Time delay
+    normalize : bool
+        If True, divide by log2(factorial(m)) to normalize the entropy
+        between 0 and 1. Otherwise, return the permutation entropy in bit.
 
-        Returns
-        -------
-        wpe : float
-            Weighted Permutation Entropy
+    Returns
+    -------
+    wpe : float
+        Weighted Permutation Entropy
 
-        References
-        ----------
-        .. [1] Bilal Fadlallah, Badong Chen, Andreas Keil, and José Príncipe
-               Phys. Rev. E 87, 022911 – Published 20 February 2013
+    References
+    ----------
+    .. [1] Bilal Fadlallah, Badong Chen, Andreas Keil, and José Príncipe
+           Phys. Rev. E 87, 022911 – Published 20 February 2013
 
-        Notes
-        -----
-        Last updated (March 2021) by Samuel Dotson (samgdotson@gmail.com)
+    Notes
+    -----
+    Last updated (March 2021) by Samuel Dotson (samgdotson@gmail.com)
 
-        Examples
-        --------
-        1. Weighted permutation entropy with order 2
+    Examples
+    --------
+    1. Weighted permutation entropy with order 2
 
-            >>> x = [4, 7, 9, 10, 6, 11, 3]
-            >>> # Return a value between 0 and log2(factorial(order))
-            >>> print(permutation_entropy(x, order=2))
-                0.912
+        >>> x = [4, 7, 9, 10, 6, 11, 3]
+        >>> # Return a value between 0 and log2(factorial(order))
+        >>> print(permutation_entropy(x, order=2))
+            0.912
 
-        2. Normalized weighted permutation entropy with order 3
+    2. Normalized weighted permutation entropy with order 3
 
-            >>> x = [4, 7, 9, 10, 6, 11, 3]
-            >>> # Return a value comprised between 0 and 1.
-            >>> print(permutation_entropy(x, order=3, normalize=True))
-                0.547
-        """
-        x = _embed(time_series, order=order, delay=delay)
+        >>> x = [4, 7, 9, 10, 6, 11, 3]
+        >>> # Return a value comprised between 0 and 1.
+        >>> print(permutation_entropy(x, order=3, normalize=True))
+            0.547
+    """
+    x = _embed(time_series, order=order, delay=delay)
 
-        weights = np.var(x, axis=1)
-        sorted_idx = x.argsort(kind='quicksort', axis=1)
-        motifs, c = np.unique(sorted_idx, return_counts=True, axis=0)
-        pw = np.zeros(len(motifs))
+    weights = np.var(x, axis=1)
+    sorted_idx = x.argsort(kind='quicksort', axis=1)
+    motifs, c = np.unique(sorted_idx, return_counts=True, axis=0)
+    pw = np.zeros(len(motifs))
 
-        # TODO hashmap
-        for i, j in zip(weights, sorted_idx):
-            idx = int(np.where((j==motifs).sum(1)==order)[0])
-            pw[idx] += i
+    # TODO hashmap
+    for i, j in zip(weights, sorted_idx):
+        idx = int(np.where((j == motifs).sum(1) == order)[0])
+        pw[idx] += i
 
-        pw /= weights.sum()
+    pw /= weights.sum()
 
-        b = np.log2(pw)
-        wpe = -np.dot(pw, b)
-        if normalize:
-            wpe /= np.log2(factorial(order))
-        return wpe
-
+    b = np.log2(pw)
+    wpe = -np.dot(pw, b)
+    if normalize:
+        wpe /= np.log2(factorial(order))
+    return wpe
 
 
 # TODO add tests

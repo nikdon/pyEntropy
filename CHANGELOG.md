@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.7.0
+
+- [#19](https://github.com/nikdon/pyEntropy/pull/19) - `weighted_permutation_entropy`
+
 ## 0.6.0
 
 - [#15](https://github.com/nikdon/pyEntropy/pull/15) - Sample entropy ignores last `M` values (thanks @CSchoel)
