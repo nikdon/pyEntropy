@@ -373,7 +373,7 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
         [1] Wu, Shuen-De, et al. "Time series analysis using
             composite multiscale entropy." Entropy 15.3 (2013): 1069-1084.
     """
-    cmse = np.zeros((1, scale))
+    cmse = np.zeros(scale)
 
     for i in range(scale):
         for j in range(i):
