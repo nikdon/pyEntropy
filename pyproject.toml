@@ -22,10 +22,14 @@ pre-commit = "^3.3.2"
 [tool.commitizen]
 name = "cz_conventional_commits"
 tag_format = "$version"
-version_type = "semver"
+version_type = "pep440"
 version_provider = "poetry"
 update_changelog_on_bump = true
 major_version_zero = true
+version_files = [
+    "setup.py:version"
+]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
