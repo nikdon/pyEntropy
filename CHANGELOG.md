@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.8.0 (2023-06-04)
+
+### Refactor
+
+- major cleanup of the repository with new ci/cd and updates to build and dependencies
+
 ## 0.7.1
 
 - Minor changes to `setup.py` to make the project's page nice
@@ -14,7 +20,7 @@
 
 ## 0.5.0
 
-Due to changes to `permutation_entropy` this release might break compatibility with previous versions. 
+Due to changes to `permutation_entropy` this release might break compatibility with previous versions.
 
 This release introduces improvements to `permutation_entropy` (thanks @raphaelvallat)
 

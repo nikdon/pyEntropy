@@ -6,8 +6,10 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-json
+      - id: check-toml
       - id: check-added-large-files
       - id: check-merge-conflict
+      - id: name-tests-test
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v2.39.1
