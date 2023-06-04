@@ -350,7 +350,7 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     pw = np.zeros(len(motifs))
 
     # TODO hashmap
-    for i, j in zip(weights, sorted_idx, strict=False):
+    for i, j in zip(weights, sorted_idx):  # noqa: B905
         idx = int(np.where((j == motifs).sum(1) == order)[0])
         pw[idx] += i
 
