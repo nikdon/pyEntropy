@@ -34,6 +34,10 @@ version_files = [
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.coverage.report]
+show_missing = true
+fail_under = 90
+
 [tool.black]
 line-length = 120
 include = '\.pyi?$'
