@@ -1,13 +1,11 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import unicode_literals
+from math import factorial
 
 import numpy as np
-from math import factorial
 
 
 def _embed(x, order=3, delay=1):
-    """Time-delay embedding.
+    """
+    Time-delay embedding.
 
     Parameters
     ----------
@@ -26,12 +24,13 @@ def _embed(x, order=3, delay=1):
     N = len(x)
     Y = np.empty((order, N - (order - 1) * delay))
     for i in range(order):
-        Y[i] = x[i * delay:i * delay + Y.shape[1]]
+        Y[i] = x[i * delay : i * delay + Y.shape[1]]
     return Y.T
 
 
 def util_pattern_space(time_series, lag, dim):
-    """Create a set of sequences with given lag and dimension
+    """
+    Create a set of sequences with given lag and dimension
 
     Args:
        time_series: Vector or string of the sample data
@@ -44,9 +43,9 @@ def util_pattern_space(time_series, lag, dim):
     n = len(time_series)
 
     if lag * dim > n:
-        raise Exception('Result matrix exceeded size limit, try to change lag or dim.')
+        raise Exception("Result matrix exceeded size limit, try to change lag or dim.")
     elif lag < 1:
-        raise Exception('Lag should be greater or equal to 1.')
+        raise Exception("Lag should be greater or equal to 1.")
 
     pattern_space = np.empty((n - lag * (dim - 1), dim))
     for i in range(n - lag * (dim - 1)):
@@ -61,7 +60,8 @@ def util_standardize_signal(time_series):
 
 
 def util_granulate_time_series(time_series, scale):
-    """Extract coarse-grained time series
+    """
+    Extract coarse-grained time series
 
     Args:
         time_series: Time series
@@ -72,13 +72,14 @@ def util_granulate_time_series(time_series, scale):
     """
     n = len(time_series)
     b = int(np.fix(n / scale))
-    temp = np.reshape(time_series[0:b * scale], (b, scale))
+    temp = np.reshape(time_series[0 : b * scale], (b, scale))
     cts = np.mean(temp, axis=1)
     return cts
 
 
 def shannon_entropy(time_series):
-    """Return the Shannon Entropy of the sample data.
+    """
+    Return the Shannon Entropy of the sample data.
 
     Args:
         time_series: Vector or string of the sample data
@@ -95,7 +96,7 @@ def shannon_entropy(time_series):
     data_set = list(set(time_series))
     freq_list = []
     for entry in data_set:
-        counter = 0.
+        counter = 0.0
         for i in time_series:
             if i == entry:
                 counter += 1
@@ -110,7 +111,8 @@ def shannon_entropy(time_series):
 
 
 def sample_entropy(time_series, sample_length, tolerance=None):
-    """Calculates the sample entropy of degree m of a time_series.
+    """
+    Calculates the sample entropy of degree m of a time_series.
 
     This method uses chebychev norm.
     It is quite fast for random data, but can be slower is there is
@@ -143,14 +145,15 @@ def sample_entropy(time_series, sample_length, tolerance=None):
 
     n = len(time_series)
 
-    # Ntemp is a vector that holds the number of matches. N[k] holds matches templates of length k
+    # Ntemp is a vector that holds the number of matches
+    # N[k] holds matches templates of length k
     Ntemp = np.zeros(M + 2)
     # Templates of length 0 matches by definition:
     Ntemp[0] = n * (n - 1) / 2
 
     for i in range(n - M - 1):
-        template = time_series[i:(i + M + 1)]  # We have 'M+1' elements in the template
-        rem_time_series = time_series[i + 1:]
+        template = time_series[i : (i + M + 1)]  # We have 'M+1' elements in the template
+        rem_time_series = time_series[i + 1 :]
 
         search_list = np.arange(len(rem_time_series) - M, dtype=np.int32)
         for length in range(1, len(template) + 1):
@@ -163,7 +166,8 @@ def sample_entropy(time_series, sample_length, tolerance=None):
 
 
 def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None):
-    """Calculate the Multiscale Entropy of the given time series considering
+    """
+    Calculate the Multiscale Entropy of the given time series considering
     different time-scales of the time series.
 
     Args:
@@ -194,7 +198,8 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
 
 
 def permutation_entropy(time_series, order=3, delay=1, normalize=False):
-    """Permutation Entropy.
+    """
+    Permutation Entropy.
 
     Parameters
     ----------
@@ -249,7 +254,7 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     x = np.array(time_series)
     hashmult = np.power(order, np.arange(order))
     # Embed x and sort the order of permutations
-    sorted_idx = _embed(x, order=order, delay=delay).argsort(kind='quicksort')
+    sorted_idx = _embed(x, order=order, delay=delay).argsort(kind="quicksort")
     # Associate unique integer to each permutations
     hashval = (np.multiply(sorted_idx, hashmult)).sum(1)
     # Return the counts
@@ -263,7 +268,8 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
 
 
 def multiscale_permutation_entropy(time_series, m, delay, scale):
-    """Calculate the Multiscale Permutation Entropy
+    """
+    Calculate the Multiscale Permutation Entropy
 
     Args:
         time_series: Time series for analysis
@@ -276,7 +282,7 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
 
     Reference:
         [1] Francesco Carlo Morabito et al. Multivariate Multi-Scale Permutation Entropy for
-            Complexity Analysis of Alzheimer’s Disease EEG. www.mdpi.com/1099-4300/14/7/1186
+            Complexity Analysis of Alzheimer`s Disease EEG. www.mdpi.com/1099-4300/14/7/1186
         [2] http://www.mathworks.com/matlabcentral/fileexchange/37288-multiscale-permutation-entropy-mpe/content/MPerm.m
     """
     mspe = []
@@ -288,7 +294,8 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
 
 
 def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False):
-    """Calculate the weighted permutation entropy. Weighted permutation
+    """
+    Calculate the weighted permutation entropy. Weighted permutation
     entropy captures the information in the amplitude of a signal where
     standard permutation entropy only measures the information in the
     ordinal pattern, "motif."
@@ -313,7 +320,7 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     References
     ----------
     .. [1] Bilal Fadlallah, Badong Chen, Andreas Keil, and José Príncipe
-           Phys. Rev. E 87, 022911 – Published 20 February 2013
+           Phys. Rev. E 87, 022911 - Published 20 February 2013
 
     Notes
     -----
@@ -338,12 +345,12 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     x = _embed(time_series, order=order, delay=delay)
 
     weights = np.var(x, axis=1)
-    sorted_idx = x.argsort(kind='quicksort', axis=1)
+    sorted_idx = x.argsort(kind="quicksort", axis=1)
     motifs, c = np.unique(sorted_idx, return_counts=True, axis=0)
     pw = np.zeros(len(motifs))
 
     # TODO hashmap
-    for i, j in zip(weights, sorted_idx):
+    for i, j in zip(weights, sorted_idx):  # noqa: B905
         idx = int(np.where((j == motifs).sum(1) == order)[0])
         pw[idx] += i
 
@@ -358,7 +365,8 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
 
 # TODO add tests
 def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=None):
-    """Calculate the Composite Multiscale Entropy of the given time series.
+    """
+    Calculate the Composite Multiscale Entropy of the given time series.
 
     Args:
         time_series: Time series for analysis

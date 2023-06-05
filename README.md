@@ -1,19 +1,17 @@
 # pyEntropy (pyEntrp)
 
-[![pypi](https://img.shields.io/badge/pypi-0.7.1-green.svg)](https://pypi.python.org/pypi/pyentrp/0.7.1)
-[![Build Status](https://travis-ci.org/nikdon/pyEntropy.svg?branch=master)](https://travis-ci.org/nikdon/pyEntropy)
 [![codecov](https://codecov.io/gh/nikdon/pyEntropy/branch/master/graph/badge.svg)](https://codecov.io/gh/nikdon/pyEntropy)
-![py27 status](https://img.shields.io/badge/python2.7-supported-green.svg)
-![py36 status](https://img.shields.io/badge/python3.6-supported-green.svg)
-![py36 status](https://img.shields.io/badge/python3.7-supported-green.svg)
-![py36 status](https://img.shields.io/badge/python3.8-supported-green.svg)
-![py36 status](https://img.shields.io/badge/python3.9-supported-green.svg)
+![py38 status](https://img.shields.io/badge/python3.8-supported-green.svg)
+![py39 status](https://img.shields.io/badge/python3.9-supported-green.svg)
+![py310 status](https://img.shields.io/badge/python3.10-supported-green.svg)
 
 1. [Quick start](#quick-start)
 2. [Usage](#usage)
-3. [Contributors and participation](#contribution-and-participation)
+3. [Contributors and participation](#contributors-and-participation)
 
 This is a small set of functions on top of NumPy that help to compute different types of entropy for time series analysis.
+
+The library provides functions for computing the following types of entropy:
 
 + Shannon Entropy ```shannon_entropy```
 + Sample Entropy ```sample_entropy```
@@ -27,6 +25,8 @@ This is a small set of functions on top of NumPy that help to compute different 
 
 `pip install pyentrp`
 
+`poetry add pyentrp`
+
 ## Usage
 
 ```python
@@ -39,10 +39,6 @@ std_ts = np.std(ts)
 sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
 ```
 
-## Requirements:
-
-+ ```>numpy-1.7.0```
-
 ## Contributors and participation
 
 * [Nikolay Donets](https://github.com/nikdon)
@@ -52,5 +48,3 @@ sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
 * [Sam Dotson](https://github.com/samgdotson)
 
 Contributions are very welcome, documentation improvements/corrections, bug reports, even feature requests :)
-
-[![Analytics](https://ga-beacon.appspot.com/UA-91956314-1/pyEntropy/readme?pixel)](https://github.com/igrigorik/ga-beacon)

@@ -1,0 +1,34 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: name-tests-test
+
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v2.39.1
+    hooks:
+      - id: commitizen
+      - id: commitizen-branch
+        stages:
+          - push
+
+  - repo: local
+    hooks:
+      - id: black format
+        name: Black formatting
+        language: system
+        entry: black .
+        pass_filenames: false
+
+      - id: ruff checks and fixes
+        name: ruff checks and fixes
+        language: system
+        entry: ruff check . --fix
+        pass_filenames: false
