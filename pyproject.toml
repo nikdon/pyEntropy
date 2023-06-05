@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "pyentropy"
-version = "0.8.1"
+name = "pyentrp"
+version = "0.8.2"
 description = "A Python library for computing entropy measures for time series analysis."
 authors = ["Nikolay Donets <nd@donets.org>"]
 license = "apache-2.0"
