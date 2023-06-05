@@ -2,9 +2,12 @@
 name = "pyentropy"
 version = "0.8.0"
 description = "A Python library for computing entropy measures for time series analysis."
-authors = ["Nikolay Donets"]
+authors = ["Nikolay Donets <nd@donets.org>"]
 license = "apache-2.0"
 readme = "README.md"
+packages = [
+  {"include" = "pyentrp"}
+]
 
 [tool.poetry.dependencies]
 python = "^3.8"
