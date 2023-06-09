@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.8.3 (2023-06-09)
+
+### Fix
+
+- use 1d vector for cmse output (#21)
+
+### Perf
+
+- **entropy.py**: improvements to calculation of shannon_entropy
+
 ## 0.8.2 (2023-06-05)
 
 ## 0.8.1 (2023-06-05)
