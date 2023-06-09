@@ -1,3 +1,4 @@
+from collections import Counter
 from math import factorial
 
 import numpy as np
@@ -87,26 +88,28 @@ def shannon_entropy(time_series):
     Returns:
         The Shannon Entropy as float value
     """
+    if isinstance(time_series, str):
+        # Calculate frequency counts
+        counter = Counter(time_series)
+        total_count = len(time_series)
 
-    # Check if string
-    if not isinstance(time_series, str):
-        time_series = list(time_series)
+        # Calculate frequencies and Shannon entropy
+        ent = 0.0
+        for count in counter.values():
+            freq = count / total_count
+            ent += freq * np.log2(freq)
 
-    # Create a frequency data
-    data_set = list(set(time_series))
-    freq_list = []
-    for entry in data_set:
-        counter = 0.0
-        for i in time_series:
-            if i == entry:
-                counter += 1
-        freq_list.append(float(counter) / len(time_series))
+        ent = -ent
+        return ent
 
-    # Shannon entropy
-    ent = 0.0
-    for freq in freq_list:
-        ent += freq * np.log2(freq)
-    ent = -ent
+    # Calculate frequency counts
+    unique_vals, counts = np.unique(time_series, return_counts=True)
+    total_count = len(time_series)
+
+    # Calculate frequencies and Shannon entropy
+    frequencies = counts / total_count
+    ent = -np.sum(frequencies * np.log2(frequencies))
+
     return ent
 
 
