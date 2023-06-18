@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: v4.4.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -10,9 +10,10 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: name-tests-test
+        args: ["--pytest-test-first"]
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v2.39.1
+    rev: 3.3.0
     hooks:
       - id: commitizen
       - id: commitizen-branch

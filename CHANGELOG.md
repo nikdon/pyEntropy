@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.8.4 (2023-06-18)
+
+### Refactor
+
+- **entropy.py**: refactoring of all functions and docstrings
+
 ## 0.8.3 (2023-06-09)
 
 ### Fix

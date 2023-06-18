@@ -26,26 +26,26 @@ RANDOM_TIME_SERIES = np.random.rand(1000)
 
 
 class TestEntropy(unittest.TestCase):
-    def test_shannonEntropyString(self):
+    def test_shannon_entropy_string(self):
         self.assertEqual(round(ent.shannon_entropy(TIME_SERIES_STRING), 5), SHANNON_ENTROPY)
 
-    def test_shannonEntropyInt(self):
+    def test_shannon_entropy_numerical(self):
         self.assertEqual(round(ent.shannon_entropy(TIME_SERIES), 5), SHANNON_ENTROPY)
 
-    def test_sampleEntropy(self):
+    def test_sample_entropy(self):
         ts = TS_SAMPLE_ENTROPY
         std_ts = np.std(ts)
         sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
         np.testing.assert_allclose(sample_entropy, np.array([2.26881823, 2.11119024, 2.33537492, 1.79175947]))
 
-    def test_multiScaleEntropy(self):
+    def test_multiscale_entropy(self):
         multi_scale_entropy = ent.multiscale_entropy(RANDOM_TIME_SERIES, 4, maxscale=4)
         np.testing.assert_allclose(
             multi_scale_entropy,
             np.array([2.52572864, 2.31911439, 1.65292302, 1.86075234]),
         )
 
-    def test_permutationEntropy(self):
+    def test_permutation_entropy(self):
         self.assertEqual(
             np.round(ent.permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1), 3),
             0.918,
@@ -63,7 +63,7 @@ class TestEntropy(unittest.TestCase):
             0.999,
         )
 
-    def test_weightedPermuationEntropy(self):
+    def test_weighted_permutation_entropy(self):
         self.assertEqual(
             np.round(
                 ent.weighted_permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1),
@@ -87,19 +87,24 @@ class TestEntropy(unittest.TestCase):
             0.999,
         )
 
-    def test_multiScalePermutationEntropy(self):
+    def test_multiscale_permutation_entropy(self):
         np.testing.assert_array_equal(
             np.round(ent.multiscale_permutation_entropy(TS_SAMPLE_ENTROPY, 3, 5, 2), 4),
             np.array([2.4699, 2.5649]),
         )
 
-    def test_utilSequence(self):
+    def test_util_pattern_space(self):
         self.assertRaises(Exception, ent.util_pattern_space, (TIME_SERIES, 0, 2))
         self.assertRaises(Exception, ent.util_pattern_space, (TIME_SERIES, 10, 20))
         np.testing.assert_array_equal(
             ent.util_pattern_space(TIME_SERIES, 2, 3),
             np.array([[1, 1, 3], [1, 2, 4], [1, 3, 5]]),
         )
+
+    def test_composite_multiscale_entropy(self):
+        signal = np.cos(np.linspace(start=0, stop=30, num=100))
+        res = ent.composite_multiscale_entropy(signal, sample_length=3, scale=3)
+        np.testing.assert_allclose(res, np.array([0.33085424, 0.19283124, 0.94056984]))
 
 
 if __name__ == "__main__":
