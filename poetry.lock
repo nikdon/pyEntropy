@@ -211,17 +211,17 @@ files = [
 
 [[package]]
 name = "commitizen"
-version = "3.3.0"
+version = "3.5.2"
 description = "Python commitizen client tool"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "commitizen-3.3.0-py3-none-any.whl", hash = "sha256:55a5e6dfb7b5815a0708532d63c22ef3433ac0d66a48d8f40a7f9ba7e56c8a2c"},
-    {file = "commitizen-3.3.0.tar.gz", hash = "sha256:b1d81366c9e6a3f426dbf72a34de043d826045a382aa8cd9bc7d9289e84e66a8"},
+    {file = "commitizen-3.5.2-py3-none-any.whl", hash = "sha256:7ab91936e18c40ebba5581c4fda10c154b29bdb15e25d27cfa0fabbc99740f2e"},
+    {file = "commitizen-3.5.2.tar.gz", hash = "sha256:71a9632c6cae9b7b925039a7482daf29a206752aa361dff34f0c37592a0e7693"},
 ]
 
 [package.dependencies]
-argcomplete = ">=1.12.1,<3.1"
+argcomplete = ">=1.12.1,<3.2"
 charset-normalizer = ">=2.1.0,<4"
 colorama = ">=0.4.1,<0.5.0"
 decli = ">=0.6.0,<0.7.0"
