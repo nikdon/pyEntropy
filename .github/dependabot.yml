@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
+    assignees:
+      - "nikdon"
+    commit-message:
+      prefix: "build:"
+    labels:
+      - "pip"
+      - "dependencies"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    assignees:
+      - "nikdon"
+    commit-message:
+      prefix: "ci:"
+    labels:
+      - "ci"
+      - "Dependencies"
