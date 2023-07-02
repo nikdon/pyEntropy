@@ -9,7 +9,6 @@ updates:
     commit-message:
       prefix: "build:"
     labels:
-      - "pip"
       - "dependencies"
 
   - package-ecosystem: github-actions
@@ -21,5 +20,4 @@ updates:
     commit-message:
       prefix: "ci:"
     labels:
-      - "ci"
-      - "Dependencies"
+      - "dependencies"
