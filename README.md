@@ -3,6 +3,7 @@
 ![py38 status](https://img.shields.io/badge/python3.8-supported-green.svg)
 ![py39 status](https://img.shields.io/badge/python3.9-supported-green.svg)
 ![py310 status](https://img.shields.io/badge/python3.10-supported-green.svg)
+![py311 status](https://img.shields.io/badge/python3.11-supported-green.svg)
 
 1. [Quick start](#quick-start)
 2. [Usage](#usage)
