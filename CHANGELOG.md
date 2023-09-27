@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.8.5 (2023-09-27)
+
+- build: add support for Python 3.11
+- build: add support for Python 3.12
+
 ## 0.8.4 (2023-06-18)
 
 ### Refactor
