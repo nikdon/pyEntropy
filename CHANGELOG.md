@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.9.0 (2023-12-20)
+
+### BREAKING CHANGE
+
+- remove support of python 3.8
+
 ## 0.8.5 (2023-09-27)
 
 - build: add support for Python 3.11
