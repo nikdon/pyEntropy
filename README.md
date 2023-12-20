@@ -40,7 +40,7 @@ poetry add pyentrp
 ## Usage
 
 ```python
-from pyentrp imaport entropy as ent
+from pyentrp import entropy as ent
 import numpy as np
 
 ts = [1, 4, 5, 1, 7, 3, 1, 2, 5, 8, 9, 7, 3, 7, 9, 5, 4, 3]
