@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name="pyentrp",
-    version="0.8.5",
+    version="0.9.0",
     description="Functions on top of NumPy for computing different types of entropy",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -34,7 +34,6 @@ setup(
         "Operating System :: OS Independent",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
