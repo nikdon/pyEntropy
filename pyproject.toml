@@ -15,7 +15,7 @@ numpy = "^1.26"
 
 
 [tool.poetry.group.dev.dependencies]
-ruff = ">=0.0.270,<0.1.7"
+ruff = ">=0.0.270,<0.1.10"
 black = "^23.3.0"
 codecov = "^2.1.13"
 commitizen = "^3.2.2"
