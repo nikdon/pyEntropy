@@ -3,31 +3,6 @@ from collections import Counter
 import numpy as np
 
 
-def _embed(x, order=3, delay=1):
-    """
-    Time-delay embedding.
-
-    Parameters
-    ----------
-    x : 1d-array, shape (n_times)
-        Time series
-    order : int
-        Embedding dimension (order)
-    delay : int
-        Delay.
-
-    Returns
-    -------
-    embedded : ndarray, shape (n_times - (order - 1) * delay, order)
-        Embedded time-series.
-
-    Notes
-    -----
-    For deprecation in next major release. Use `time_delay_embedding` instead
-    """
-    return time_delay_embedding(x, order, delay)
-
-
 def time_delay_embedding(time_series, embedding_dimension, delay=1):
     """
     Time-delayed embedding.
