@@ -4,8 +4,7 @@ import numpy as np
 
 from pyentrp import entropy as ent
 
-np.random.seed(1234567)
-
+rng = np.random.default_rng(1234567)
 
 TIME_SERIES = [1, 1, 1, 2, 3, 4, 5]
 TIME_SERIES_STRING = "1112345"
@@ -22,15 +21,15 @@ TS_SAMPLE_ENTROPY = [
 
 PERM_ENTROPY_BANDT = [4, 7, 9, 10, 6, 11, 3]
 
-RANDOM_TIME_SERIES = np.random.rand(1000)
+RANDOM_TIME_SERIES = rng.random(1000)
 
 
 class TestEntropy(unittest.TestCase):
     def test_shannon_entropy_string(self):
-        self.assertEqual(round(ent.shannon_entropy(TIME_SERIES_STRING), 5), SHANNON_ENTROPY)
+        np.testing.assert_allclose(ent.shannon_entropy(TIME_SERIES_STRING), SHANNON_ENTROPY, rtol=1e-5)
 
     def test_shannon_entropy_numerical(self):
-        self.assertEqual(round(ent.shannon_entropy(TIME_SERIES), 5), SHANNON_ENTROPY)
+        np.testing.assert_allclose(ent.shannon_entropy(TIME_SERIES), SHANNON_ENTROPY, rtol=1e-5)
 
     def test_sample_entropy(self):
         ts = TS_SAMPLE_ENTROPY
@@ -42,49 +41,48 @@ class TestEntropy(unittest.TestCase):
         multi_scale_entropy = ent.multiscale_entropy(RANDOM_TIME_SERIES, 4, maxscale=4)
         np.testing.assert_allclose(
             multi_scale_entropy,
-            np.array([2.52572864, 2.31911439, 1.65292302, 1.86075234]),
+            np.array([3.178054, 3.178054, 2.890372, 3.401197]),
+            rtol=1e-6,
         )
 
     def test_permutation_entropy(self):
-        self.assertEqual(
-            np.round(ent.permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1), 3),
+        np.testing.assert_allclose(
+            ent.permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1),
             0.918,
+            rtol=1e-3,
         )
-        self.assertEqual(
-            np.round(ent.permutation_entropy(PERM_ENTROPY_BANDT, order=3, delay=1), 3),
+
+        np.testing.assert_allclose(
+            ent.permutation_entropy(PERM_ENTROPY_BANDT, order=3, delay=1),
             1.522,
+            rtol=1e-3,
         )
+
         # Assert that a fully random vector has an entropy of 0.99999...
-        self.assertEqual(
-            np.round(
-                ent.permutation_entropy(RANDOM_TIME_SERIES, order=3, delay=1, normalize=True),
-                3,
-            ),
+        np.testing.assert_allclose(
+            ent.permutation_entropy(RANDOM_TIME_SERIES, order=3, delay=1, normalize=True),
             0.999,
+            rtol=1e-3,
         )
 
     def test_weighted_permutation_entropy(self):
-        self.assertEqual(
-            np.round(
-                ent.weighted_permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1),
-                3,
-            ),
+        np.testing.assert_allclose(
+            ent.weighted_permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1),
             0.913,
+            rtol=1e-3,
         )
-        self.assertEqual(
-            np.round(
-                ent.weighted_permutation_entropy(PERM_ENTROPY_BANDT, order=3, delay=1),
-                3,
-            ),
+
+        np.testing.assert_allclose(
+            ent.weighted_permutation_entropy(PERM_ENTROPY_BANDT, order=3, delay=1),
             1.414,
+            rtol=1e-3,
         )
+
         # Assert that a fully random vector has an entropy of 0.99999...
-        self.assertEqual(
-            np.round(
-                ent.weighted_permutation_entropy(RANDOM_TIME_SERIES, order=3, delay=1, normalize=True),
-                3,
-            ),
+        np.testing.assert_allclose(
+            ent.weighted_permutation_entropy(RANDOM_TIME_SERIES, order=3, delay=1, normalize=True),
             0.999,
+            rtol=1e-3,
         )
 
     def test_multiscale_permutation_entropy(self):

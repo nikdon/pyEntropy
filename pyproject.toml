@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pyentrp"
-version = "0.9.0"
+version = "1.0.0"
 description = "A Python library for computing entropy measures for time series analysis."
 authors = ["Nikolay Donets <nd@donets.org>"]
 license = "apache-2.0"
@@ -11,15 +11,15 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-numpy = "^1.26"
+numpy = ">=1.26,<3.0"
 
 
 [tool.poetry.group.dev.dependencies]
-ruff = ">=0.5.0,<0.5.1"
 black = ">=23.3,<25.0"
 codecov = "^2.1.13"
 commitizen = "^3.2.2"
 pre-commit = "^3.3.2"
+ruff = ">=0.5.0,<0.5.1"
 
 
 [tool.commitizen]
@@ -64,8 +64,9 @@ exclude = '''
 line-length = 120
 target-version = "py310"
 fix = true
-unfixable = []
 
+[tool.ruff.lint]
+unfixable = []
 select = [
   # isort
   "I",
@@ -101,4 +102,15 @@ select = [
   "PGH",
   # Ruff-specific rules
   "RUF",
+  # NumPy-specific rules
+  "NPY",
+  # pydocstyle
+  "D",
 ]
+ignore = [
+  "D100", "D104",
+  "D203", "D213"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests}/*" = ["D101", "D102", "D103"]
