@@ -1,11 +1,11 @@
+import math
 from collections import Counter
 
 import numpy as np
 
 
-def time_delay_embedding(time_series, embedding_dimension, delay=1):
-    """
-    Time-delayed embedding.
+def time_delay_embedding(time_series, embedding_dimension, delay):
+    """Calculate time-delayed embedding.
 
     Parameters
     ----------
@@ -20,6 +20,7 @@ def time_delay_embedding(time_series, embedding_dimension, delay=1):
     -------
     embedded : ndarray
         The embedded time series with shape (n_times - (order - 1) * delay, order).
+
     """
     series_length = len(time_series)
     embedded_series = np.empty((embedding_dimension, series_length - (embedding_dimension - 1) * delay))
@@ -29,8 +30,7 @@ def time_delay_embedding(time_series, embedding_dimension, delay=1):
 
 
 def util_pattern_space(time_series, lag, dim):
-    """
-    Create a set of sequences with given lag and dimension
+    """Create a set of sequences with a given lag and dimension.
 
     Parameters
     ----------
@@ -49,6 +49,7 @@ def util_pattern_space(time_series, lag, dim):
     Raises
     ------
     ValueError: If the lag is less than 1 or the result matrix exceeds the size limit.
+
     """
     n = len(time_series)
 
@@ -66,8 +67,7 @@ def util_pattern_space(time_series, lag, dim):
 
 
 def util_granulate_time_series(time_series, scale):
-    """
-    Extract coarse-grained time series
+    """Extract coarse-grained time series.
 
     Parameters
     ----------
@@ -79,7 +79,8 @@ def util_granulate_time_series(time_series, scale):
     Returns
     -------
     cts : np.ndarray
-        Array of coarse-grained time series with given scale factor
+        Array of coarse-grained time series with a given scale factor
+
     """
     if not isinstance(time_series, np.ndarray):
         time_series = np.array(time_series)
@@ -91,8 +92,7 @@ def util_granulate_time_series(time_series, scale):
 
 
 def shannon_entropy(time_series):
-    """
-    Return the Shannon Entropy of the sample data.
+    """Calculate Shannon Entropy of the sample data.
 
     Parameters
     ----------
@@ -103,6 +103,7 @@ def shannon_entropy(time_series):
     -------
     ent: float
         The Shannon Entropy as float value
+
     """
     if isinstance(time_series, str):
         # Calculate frequency counts
@@ -130,11 +131,10 @@ def shannon_entropy(time_series):
 
 
 def sample_entropy(time_series, sample_length, tolerance=None):
-    """
-    Calculates the sample entropy of degree m of a time_series.
+    """Calculate the sample entropy of degree m of a time_series.
 
     This method uses Chebyshev norm.
-    It is quite fast for random data, but can be slower is there is
+    It is quite fast for random data but can be slower is there is
     structure in the input time series.
 
     Parameters
@@ -150,7 +150,7 @@ def sample_entropy(time_series, sample_length, tolerance=None):
     -------
     sampen: np.ndarray
         Array of Sample Entropies SE.
-        SE[k] is ratio `#templates of length k+1` / `#templates of length k`
+        SE[k] is the ratio `#templates of length k+1` / `#templates of length k`
         where `#templates of length 0` = n*(n - 1) / 2, by definition
 
     Notes
@@ -162,6 +162,7 @@ def sample_entropy(time_series, sample_length, tolerance=None):
     .. [1] http://en.wikipedia.org/wiki/Sample_Entropy
     .. [2] http://physionet.incor.usp.br/physiotools/sampen/
     .. [3] Madalena Costa, Ary Goldberger, CK Peng. Multiscale entropy analysis of biological signals
+
     """
     if not isinstance(time_series, np.ndarray):
         time_series = np.array(time_series)
@@ -177,7 +178,7 @@ def sample_entropy(time_series, sample_length, tolerance=None):
     # N_temp[k] holds matches templates of length k
     N_temp = np.zeros(sample_length + 2)
 
-    # Templates of length 0 matches by definition:
+    # Templates of length 0 match by definition:
     N_temp[0] = n * (n - 1) / 2
 
     for i in range(n - sample_length - 1):
@@ -195,9 +196,7 @@ def sample_entropy(time_series, sample_length, tolerance=None):
 
 
 def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None):
-    """
-    Calculate the Multiscale Entropy of the given time series considering
-    different time-scales of the time series.
+    """Calculate Multiscale Entropy considering different time-scales of the time series.
 
     Parameters
     ----------
@@ -219,6 +218,7 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
     ----------
     .. [1] http://en.pudn.com/downloads149/sourcecode/math/detail646216_en.html
             Can be viewed at https://web.archive.org/web/20170207221539/http://en.pudn.com/downloads149/sourcecode/math/detail646216_en.html
+
     """
     if tolerance is None:
         tolerance = 0.1 * np.std(time_series)
@@ -234,12 +234,11 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
 
 
 def permutation_entropy(time_series, order=3, delay=1, normalize=False):
-    """
-    Permutation Entropy.
+    """Calculate Permutation Entropy.
 
     Parameters
     ----------
-    time_series : list | np.array
+    time_series : list | np.ndarray
         Time series
     order : int
         Order of permutation entropy
@@ -286,6 +285,7 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
         >>> # Return a value comprised between 0 and 1.
         >>> print(permutation_entropy(x, order=3, normalize=True))
             0.589
+
     """
     x = np.array(time_series)
     hashmult = np.power(order, np.arange(order))
@@ -299,13 +299,13 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     p = np.true_divide(c, c.sum())
     pe = -np.multiply(p, np.log2(p)).sum()
     if normalize:
-        pe /= np.log2(np.math.factorial(order))
+        factorial = math.factorial(order)
+        pe /= np.log2(factorial)
     return pe
 
 
 def multiscale_permutation_entropy(time_series, m, delay, scale):
-    """
-    Calculate the Multiscale Permutation Entropy
+    """Calculate the Multiscale Permutation Entropy.
 
     Parameters
     ----------
@@ -328,6 +328,7 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     .. [1] Francesco Carlo Morabito et al. Multivariate Multi-Scale Permutation Entropy for
             Complexity Analysis of Alzheimer`s Disease EEG. www.mdpi.com/1099-4300/14/7/1186
     .. [2] http://www.mathworks.com/matlabcentral/fileexchange/37288-multiscale-permutation-entropy-mpe/content/MPerm.m
+
     """
     mspe = np.empty(scale)
     for i in range(scale):
@@ -337,11 +338,10 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
 
 
 def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False):
-    """
-    Calculate the weighted permutation entropy. Weighted permutation
-    entropy captures the information in the amplitude of a signal where
-    standard permutation entropy only measures the information in the
-    ordinal pattern, "motif".
+    """Calculate the weighted permutation entropy.
+
+    Weighted permutation entropy captures the information in the amplitude of a signal where
+    standard permutation entropy only measures the information in the ordinal pattern, "motif".
 
     Parameters
     ----------
@@ -385,6 +385,7 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
         >>> # Return a value comprised between 0 and 1.
         >>> print(permutation_entropy(x, order=3, normalize=True))
             0.547
+
     """
     x = time_delay_embedding(time_series, embedding_dimension=order, delay=delay)
 
@@ -406,14 +407,13 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     wpe = -np.dot(pw, b)
 
     if normalize:
-        wpe /= np.log2(np.math.factorial(order))
+        wpe /= np.log2(math.factorial(order))
 
     return wpe
 
 
 def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=None):
-    """
-    Composite Multiscale Entropy of the given time series
+    """Calculate Composite Multiscale Entropy.
 
     Parameters
     ----------
@@ -435,6 +435,7 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
     ----------
     .. [1] Wu, Shuen-De, et al. "Time series analysis using
         composite multiscale entropy." Entropy 15.3 (2013): 1069-1084.
+
     """
     if tolerance is None:
         tolerance = 0.1 * np.std(time_series)
