@@ -1,5 +1,12 @@
 # Change Log
 
+## 1.0.0 (2024-07-06)
+
+### Refactor
+
+- update ruff lint rules and fix tests
+- remove deprecated function
+
 ## 0.9.0 (2023-12-20)
 
 ### BREAKING CHANGE
