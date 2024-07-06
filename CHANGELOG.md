@@ -2,10 +2,14 @@
 
 ## 1.0.0 (2024-07-06)
 
+### BREAKING CHANGE
+
+- remove deprecated function `_embed`
+
 ### Refactor
 
 - update ruff lint rules and fix tests
-- remove deprecated function
+- use `math.factorial` instead of `np.math.factorial`
 
 ## 0.9.0 (2023-12-20)
 
