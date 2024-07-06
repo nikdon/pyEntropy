@@ -64,8 +64,9 @@ exclude = '''
 line-length = 120
 target-version = "py310"
 fix = true
-unfixable = []
 
+[tool.ruff.lint]
+unfixable = []
 select = [
   # isort
   "I",
