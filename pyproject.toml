@@ -19,7 +19,7 @@ black = ">=23.3,<26.0"
 codecov = "^2.1.13"
 commitizen = ">=3.2.2,<5.0.0"
 pre-commit = ">=3.3.2,<5.0.0"
-ruff = ">=0.5.0,<0.8.5"
+ruff = ">=0.5.0,<0.9.6"
 
 
 [tool.commitizen]
