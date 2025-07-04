@@ -1,6 +1,5 @@
 [project]
 name = "pyentrp"
-version = "1.0.0"
 description = "A Python library for computing entropy measures for time series analysis."
 authors = [
   { name = "Nikolay Donets", email = "nd@donets.org" }
@@ -10,6 +9,9 @@ readme = "README.md"
 packages = [
   {"include" = "pyentrp"}
 ]
+
+[tool.poetry]
+version = "1.0.0"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
@@ -64,7 +66,7 @@ exclude = '''
 
 [tool.ruff]
 line-length = 120
-target-version = ["py39", "py310", "py311", "py312", "py313"]
+target-version = "py39"
 fix = true
 
 [tool.ruff.lint]
