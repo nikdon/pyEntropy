@@ -393,7 +393,7 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     sorted_idx = x.argsort(kind="quicksort", axis=1)
 
     motif_weights = {}
-    for weight, indices in zip(weights, sorted_idx):  # noqa: B905
+    for weight, indices in zip(weights, sorted_idx):
         motif = tuple(indices)
         if motif in motif_weights:
             motif_weights[motif] += weight

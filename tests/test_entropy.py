@@ -92,8 +92,8 @@ class TestEntropy(unittest.TestCase):
         )
 
     def test_util_pattern_space(self):
-        self.assertRaises(Exception, ent.util_pattern_space, (TIME_SERIES, 0, 2))
-        self.assertRaises(Exception, ent.util_pattern_space, (TIME_SERIES, 10, 20))
+        self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 0, 2)
+        self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 10, 20)
         np.testing.assert_array_equal(
             ent.util_pattern_space(TIME_SERIES, 2, 3),
             np.array([[1, 1, 3], [1, 2, 4], [1, 3, 5]]),
