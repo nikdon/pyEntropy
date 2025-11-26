@@ -1,5 +1,11 @@
 # Change Log
 
+## 2.1.0 (2025-11-26)
+
+### Features
+
+- build: add support for Python 3.14
+
 ## 2.0.0 (2025-07-04)
 
 ## 1.0.0 (2024-07-06)

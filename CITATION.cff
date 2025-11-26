@@ -5,7 +5,7 @@ authors:
     given-names: "Nikolay"
     orcid: "https://orcid.org/0009-0008-2912-6615"
 title: "pyEntropy"
-version: 2.0.0
+version: 2.1.0
 doi: "10.5281/zenodo.17727790"
 date-released: "2025-07-04"
 url: "https://github.com/nikdon/pyEntropy"
