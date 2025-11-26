@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Donets"
+    given-names: "Nikolay"
+    orcid: "https://orcid.org/0009-0008-2912-6615"
+title: "pyEntropy"
+version: 2.0.0
+doi: "10.5281/zenodo.17727790"
+date-released: "2025-07-04"
+url: "https://github.com/nikdon/pyEntropy"
