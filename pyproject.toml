@@ -24,7 +24,7 @@ codecov = "^2.1.13"
 commitizen = ">=3.2.2,<5.0.0"
 coverage = "^7.10.7"
 pre-commit = ">=3.3.2,<5.0.0"
-ruff = ">=0.5.0,<0.14.8"
+ruff = ">=0.5.0,<0.14.11"
 
 
 [tool.commitizen]
