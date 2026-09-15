@@ -11,18 +11,17 @@ packages = [
 ]
 
 [tool.poetry]
-version = "2.1.0"
+version = "2.2.0"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+python = ">=3.10,<4.0"
 numpy = ">=1.26,<3.0"
 
 
 [tool.poetry.group.dev.dependencies]
-black = ">=23.3,<26.0"
 codecov = "^2.1.13"
 commitizen = ">=3.2.2,<5.0.0"
-coverage = "^7.10.7"
+coverage = {version = "^7.10.7", extras = ["toml"]}
 pre-commit = ">=3.3.2,<5.0.0"
 ruff = ">=0.5.0,<0.14.11"
 
@@ -45,28 +44,9 @@ build-backend = "poetry.core.masonry.api"
 show_missing = true
 fail_under = 90
 
-[tool.black]
-line-length = 120
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-  | venv
-)/
-'''
-
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 fix = true
 
 [tool.ruff.lint]

@@ -1,5 +1,19 @@
 # Change Log
 
+## 2.2.0 (2026-09-15)
+
+### Features
+
+- build: add support for Python 3.15
+
+### BREAKING CHANGE
+
+- build: remove support for Python 3.9
+
+### Refactor
+
+- build: replace Black with Ruff formatting and update development dependencies
+
 ## 2.1.0 (2025-11-26)
 
 ### Features

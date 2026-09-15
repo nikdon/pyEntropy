@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -13,19 +13,19 @@ repos:
         args: ["--pytest-test-first"]
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v3.13.0
+    rev: v4.18.1
     hooks:
       - id: commitizen
       - id: commitizen-branch
         stages:
-          - push
+          - pre-push
 
   - repo: local
     hooks:
-      - id: black format
-        name: Black formatting
+      - id: ruff format
+        name: Ruff formatting
         language: system
-        entry: black .
+        entry: ruff format .
         pass_filenames: false
 
       - id: ruff checks and fixes
