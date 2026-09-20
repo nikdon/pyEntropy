@@ -5,6 +5,10 @@ from collections import Counter
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
+MIN_DISPERSION_CLASSES = 2
+MAX_SAFE_INT64_BITS = 62
+ENTROPY_EPSILON = 1e-15
+
 
 def time_delay_embedding(time_series, embedding_dimension, delay):
     """Calculate time-delayed embedding.
@@ -27,7 +31,7 @@ def time_delay_embedding(time_series, embedding_dimension, delay):
     series_length = len(time_series)
     embedded_series = np.empty((embedding_dimension, series_length - (embedding_dimension - 1) * delay))
     for i in range(embedding_dimension):
-        embedded_series[i] = time_series[i * delay : i * delay + embedded_series.shape[1]]
+        embedded_series[i] = time_series[i * delay: i * delay + embedded_series.shape[1]]
     return embedded_series.T
 
 
@@ -63,7 +67,7 @@ def util_pattern_space(time_series, lag, dim):
 
     pattern_space = np.zeros((n - lag * (dim - 1), dim))
     for i in range(dim):
-        pattern_space[:, i] = time_series[i * lag : i * lag + n - lag * (dim - 1)]
+        pattern_space[:, i] = time_series[i * lag: i * lag + n - lag * (dim - 1)]
 
     return pattern_space
 
@@ -161,8 +165,8 @@ def _count_template_matches(time_series, sample_length, tolerance):
     N_temp[0] = n * (n - 1) / 2
 
     for i in range(n - m - 1):
-        template = time_series[i : (i + m + 1)]  # We have `sample_length` elements in the template
-        rem_time_series = time_series[i + 1 :]
+        template = time_series[i: (i + m + 1)]  # We have `sample_length` elements in the template
+        rem_time_series = time_series[i + 1:]
 
         search_list = np.arange(len(rem_time_series) - m, dtype=np.int32)
         for length in range(1, len(template) + 1):
@@ -617,7 +621,7 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
         cent = vec - np.mean(vec, axis=1, keepdims=True)
         total = 0.0
         for i in range(n_vectors - 1):
-            d = np.max(np.abs(cent[i + 1 :] - cent[i]), axis=1)
+            d = np.max(np.abs(cent[i + 1:] - cent[i]), axis=1)
             total += np.sum(np.exp(-((d / tolerance) ** n)))
         return total / (n_vectors * (n_vectors - 1) / 2)
 
@@ -635,18 +639,13 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     return float(-np.log(phi_m1 / phi_m))
 
 
-MIN_DISPERSION_CLASSES = 2
-MAX_SAFE_INT64_BITS = 62
-ENTROPY_EPSILON = 1e-15
-
-
 def _validate_dispersion_params(  # noqa: PLR0913
-    time_series,
-    classes,
-    order,
-    delay,
-    mapping,
-    normalize,
+        time_series,
+        classes,
+        order,
+        delay,
+        mapping,
+        normalize,
 ):
     if not isinstance(time_series, np.ndarray):
         time_series = np.array(time_series)
@@ -698,12 +697,12 @@ def _map_to_classes(time_series, classes, mapping):
 
 
 def dispersion_entropy(  # noqa: PLR0913
-    time_series,
-    classes=3,
-    order=3,
-    delay=1,
-    mapping="ncdf",
-    normalize=False,
+        time_series,
+        classes=3,
+        order=3,
+        delay=1,
+        mapping="ncdf",
+        normalize=False,
 ):
     """Calculate Dispersion Entropy (DispEn).
 
@@ -758,7 +757,7 @@ def dispersion_entropy(  # noqa: PLR0913
     patterns = time_delay_embedding(z_zero, embedding_dimension=order, delay=delay).astype(np.int64)
 
     if order * math.log2(classes) >= MAX_SAFE_INT64_BITS:
-        hashmult = np.array([classes**i for i in range(order)], dtype=object)
+        hashmult = np.array([classes ** i for i in range(order)], dtype=object)
     else:
         hashmult = np.power(classes, np.arange(order, dtype=np.int64))
 
