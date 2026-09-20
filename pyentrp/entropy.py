@@ -611,42 +611,18 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
         tolerance = 0.2 * std
 
     n_vectors = len(time_series) - sample_length
-    i_idx, j_idx = np.triu_indices(n_vectors, k=1)
-    n_pairs = len(i_idx)
 
-    # Embedding vectors for dimension m
-    vec_m = sliding_window_view(time_series[: n_vectors + sample_length - 1], sample_length)
-    cent_m = vec_m - np.mean(vec_m, axis=1, keepdims=True)
+    def _phi(win_len):
+        vec = sliding_window_view(time_series[: n_vectors + win_len - 1], win_len)
+        cent = vec - np.mean(vec, axis=1, keepdims=True)
+        total = 0.0
+        for i in range(n_vectors - 1):
+            d = np.max(np.abs(cent[i + 1 :] - cent[i]), axis=1)
+            total += np.sum(np.exp(-((d / tolerance) ** n)))
+        return total / (n_vectors * (n_vectors - 1) / 2)
 
-    # Embedding vectors for dimension m + 1
-    vec_m1 = sliding_window_view(time_series[: n_vectors + sample_length], sample_length + 1)
-    cent_m1 = vec_m1 - np.mean(vec_m1, axis=1, keepdims=True)
-
-    chunk_size = 500_000
-    if n_pairs <= chunk_size:
-        dist_m = np.max(np.abs(cent_m[i_idx] - cent_m[j_idx]), axis=1)
-        sim_m = np.exp(-((dist_m / tolerance) ** n))
-        phi_m = np.mean(sim_m)
-
-        dist_m1 = np.max(np.abs(cent_m1[i_idx] - cent_m1[j_idx]), axis=1)
-        sim_m1 = np.exp(-((dist_m1 / tolerance) ** n))
-        phi_m1 = np.mean(sim_m1)
-    else:
-        sum_sim_m = 0.0
-        sum_sim_m1 = 0.0
-        for start in range(0, n_pairs, chunk_size):
-            end = min(start + chunk_size, n_pairs)
-            sel_i = i_idx[start:end]
-            sel_j = j_idx[start:end]
-
-            d_m = np.max(np.abs(cent_m[sel_i] - cent_m[sel_j]), axis=1)
-            sum_sim_m += np.sum(np.exp(-((d_m / tolerance) ** n)))
-
-            d_m1 = np.max(np.abs(cent_m1[sel_i] - cent_m1[sel_j]), axis=1)
-            sum_sim_m1 += np.sum(np.exp(-((d_m1 / tolerance) ** n)))
-
-        phi_m = sum_sim_m / n_pairs
-        phi_m1 = sum_sim_m1 / n_pairs
+    phi_m = _phi(sample_length)
+    phi_m1 = _phi(sample_length + 1)
 
     if phi_m1 == 0 or phi_m == 0:
         warnings.warn(
