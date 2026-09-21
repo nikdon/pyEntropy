@@ -617,6 +617,7 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     n_vectors = len(time_series) - sample_length
 
     def _phi(win_len):
+        """Calculate the mean fuzzy similarity for windows of a given length."""
         vec = sliding_window_view(time_series[: n_vectors + win_len - 1], win_len)
         cent = vec - np.mean(vec, axis=1, keepdims=True)
         total = 0.0
@@ -647,6 +648,7 @@ def _validate_dispersion_params(  # noqa: PLR0913
     mapping,
     normalize,
 ):
+    """Validate dispersion entropy inputs and return the time series as an array."""
     if not isinstance(time_series, np.ndarray):
         time_series = np.array(time_series)
 
@@ -678,6 +680,7 @@ def _validate_dispersion_params(  # noqa: PLR0913
 
 
 def _map_to_classes(time_series, classes, mapping):
+    """Map a time series to integer classes with the selected mapping method."""
     mapping_lower = mapping.lower()
     if mapping_lower == "ncdf":
         mu = np.mean(time_series)

@@ -27,18 +27,22 @@ RANDOM_TIME_SERIES = rng.random(1000)
 
 class TestEntropy(unittest.TestCase):
     def test_shannon_entropy_string(self):
+        """Calculate Shannon entropy for a string-valued time series."""
         np.testing.assert_allclose(ent.shannon_entropy(TIME_SERIES_STRING), SHANNON_ENTROPY, rtol=1e-5)
 
     def test_shannon_entropy_numerical(self):
+        """Calculate Shannon entropy for a numerical time series."""
         np.testing.assert_allclose(ent.shannon_entropy(TIME_SERIES), SHANNON_ENTROPY, rtol=1e-5)
 
     def test_sample_entropy(self):
+        """Calculate sample entropy for deterministic input."""
         ts = TS_SAMPLE_ENTROPY
         std_ts = np.std(ts)
         sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
         np.testing.assert_allclose(sample_entropy, np.array([2.26881823, 2.11119024, 2.33537492, 1.79175947]))
 
     def test_multiscale_entropy(self):
+        """Calculate multiscale entropy across the requested scales."""
         multi_scale_entropy = ent.multiscale_entropy(RANDOM_TIME_SERIES, 4, maxscale=4)
         np.testing.assert_allclose(
             multi_scale_entropy,
@@ -47,6 +51,7 @@ class TestEntropy(unittest.TestCase):
         )
 
     def test_permutation_entropy(self):
+        """Calculate permutation entropy with and without normalization."""
         np.testing.assert_allclose(
             ent.permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1),
             0.918,
@@ -67,6 +72,7 @@ class TestEntropy(unittest.TestCase):
         )
 
     def test_weighted_permutation_entropy(self):
+        """Calculate weighted permutation entropy for supported parameters."""
         np.testing.assert_allclose(
             ent.weighted_permutation_entropy(PERM_ENTROPY_BANDT, order=2, delay=1),
             0.913,
@@ -87,12 +93,14 @@ class TestEntropy(unittest.TestCase):
         )
 
     def test_multiscale_permutation_entropy(self):
+        """Calculate multiscale permutation entropy for deterministic input."""
         np.testing.assert_array_equal(
             np.round(ent.multiscale_permutation_entropy(TS_SAMPLE_ENTROPY, 3, 5, 2), 4),
             np.array([2.4699, 2.5649]),
         )
 
     def test_util_pattern_space(self):
+        """Construct the expected embedded pattern space."""
         self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 0, 2)
         self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 10, 20)
         np.testing.assert_array_equal(
@@ -101,16 +109,19 @@ class TestEntropy(unittest.TestCase):
         )
 
     def test_composite_multiscale_entropy(self):
+        """Calculate composite multiscale entropy across scales."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
         res = ent.composite_multiscale_entropy(signal, sample_length=3, scale=3)
         np.testing.assert_allclose(res, np.array([0.33085424, 0.19283124, 0.94056984]))
 
     def test_count_template_matches(self):
+        """Count matching templates at each template length."""
         ts = [1, 2, 1, 2, 1]
         matches = ent._count_template_matches(ts, sample_length=2, tolerance=0.5)
         np.testing.assert_array_equal(matches, np.array([10.0, 2.0, 2.0]))
 
     def test_rcmse_scale_1_equivalence(self):
+        """Match sample entropy when RCMSE uses a single scale."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
         se = ent.sample_entropy(signal, sample_length=3)[-1]
         rcmse = ent.rcmse(signal, sample_length=3, scale=1)
@@ -122,17 +133,20 @@ class TestEntropy(unittest.TestCase):
         np.testing.assert_allclose(rcmse_ts[0], se_ts)
 
     def test_rcmse_sinusoidal(self):
+        """Return expected RCMSE values for a sinusoidal signal."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
         res = ent.rcmse(signal, sample_length=3, scale=3)
         np.testing.assert_allclose(res, np.array([0.33085424, 0.19237189, 0.90078655]))
 
     def test_rcmse_random(self):
+        """Return finite positive RCMSE values for random input."""
         res = ent.rcmse(RANDOM_TIME_SERIES, sample_length=3, scale=4)
         self.assertEqual(res.shape, (4,))
         self.assertTrue(np.all(np.isfinite(res)))
         self.assertTrue(np.all(res > 0))
 
     def test_rcmse_short_series_resilience(self):
+        """Pool matches across shifts for a short time series."""
         rng_local = np.random.default_rng(42)
         ts = rng_local.random(40)
         tol = 0.2 * np.std(ts)
@@ -150,12 +164,14 @@ class TestEntropy(unittest.TestCase):
         np.testing.assert_allclose(rcmse_res[2:], np.array([1.60943791, 1.38629436]))
 
     def test_rcmse_zero_matches_warning(self):
+        """Warn and return NaN when RCMSE finds no matches."""
         with self.assertWarns(RuntimeWarning):
             res = ent.rcmse([1.0, 10.0, 100.0, 1000.0, 10000.0], sample_length=2, scale=1, tolerance=0.01)
         self.assertEqual(res.shape, (1,))
         self.assertTrue(np.isnan(res[0]))
 
     def test_rcmse_invalid_inputs(self):
+        """Reject invalid RCMSE parameters and input shapes."""
         self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, sample_length=2, scale=0)
         self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, sample_length=2, scale=-1)
         self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, sample_length=0, scale=2)
@@ -163,6 +179,7 @@ class TestEntropy(unittest.TestCase):
         self.assertRaises(ValueError, ent.rcmse, np.zeros((3, 3)), sample_length=2, scale=1)
 
     def test_fuzzy_entropy_basic(self):
+        """Return finite fuzzy entropy with explicit and default tolerance."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
         fe = ent.fuzzy_entropy(signal, sample_length=2, tolerance=0.2 * np.std(signal), n=2)
         self.assertIsInstance(fe, float)
@@ -173,6 +190,7 @@ class TestEntropy(unittest.TestCase):
         np.testing.assert_allclose(fe, fe_default)
 
     def test_fuzzy_entropy_deterministic_and_sinusoidal(self):
+        """Return expected fuzzy entropy for deterministic signals."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
         fe = ent.fuzzy_entropy(signal, sample_length=2)
         np.testing.assert_allclose(fe, 0.60045352, rtol=1e-5)
@@ -182,12 +200,14 @@ class TestEntropy(unittest.TestCase):
         self.assertGreater(fe_ts, 0.0)
 
     def test_fuzzy_entropy_constant_signal(self):
+        """Return zero fuzzy entropy for constant signals."""
         constant_ts = np.ones(50)
         self.assertEqual(ent.fuzzy_entropy(constant_ts), 0.0)
         self.assertEqual(ent.fuzzy_entropy(constant_ts, tolerance=0.2), 0.0)
         self.assertEqual(ent.fuzzy_entropy([5] * 20), 0.0)
 
     def test_fuzzy_entropy_smoothness_vs_tolerance(self):
+        """Decrease fuzzy entropy as tolerance increases."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
         tolerances = [0.1, 0.2, 0.3, 0.4, 0.5]
         fe_values = [ent.fuzzy_entropy(signal, sample_length=2, tolerance=tol) for tol in tolerances]
@@ -195,6 +215,7 @@ class TestEntropy(unittest.TestCase):
             self.assertGreater(fe_values[i], fe_values[i + 1])
 
     def test_fuzzy_entropy_varying_n(self):
+        """Return finite fuzzy entropy across boundary weights."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
         fe_n1 = ent.fuzzy_entropy(signal, sample_length=2, n=1)
         fe_n2 = ent.fuzzy_entropy(signal, sample_length=2, n=2)
@@ -204,6 +225,7 @@ class TestEntropy(unittest.TestCase):
             self.assertGreater(val, 0.0)
 
     def test_fuzzy_entropy_chunking_large_series(self):
+        """Handle fuzzy entropy calculations for a large time series."""
         rng_local = np.random.default_rng(999)
         long_ts = rng_local.standard_normal(1200)
         fe = ent.fuzzy_entropy(long_ts, sample_length=2)
@@ -211,12 +233,14 @@ class TestEntropy(unittest.TestCase):
         self.assertGreater(fe, 1.5)
 
     def test_fuzzy_entropy_vanished_similarity_warning(self):
+        """Warn and return NaN when fuzzy similarities vanish."""
         extreme_ts = [1.0, 1000.0, 100000.0, 10000000.0, 1000000000.0]
         with self.assertWarns(RuntimeWarning):
             fe = ent.fuzzy_entropy(extreme_ts, sample_length=1, tolerance=1e-12, n=2)
         self.assertTrue(np.isnan(fe))
 
     def test_fuzzy_entropy_input_types(self):
+        """Return equivalent fuzzy entropy for supported input types."""
         list_data = [1, 3, 2, 5, 4, 7, 6, 8, 2, 4]
         np_float = np.array(list_data, dtype=float)
         np_int = np.array(list_data, dtype=int)
@@ -227,6 +251,7 @@ class TestEntropy(unittest.TestCase):
         self.assertAlmostEqual(res_list, res_int)
 
     def test_fuzzy_entropy_invalid_inputs(self):
+        """Reject invalid fuzzy entropy parameters and input shapes."""
         self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, sample_length=0)
         self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, sample_length=-1)
         self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, sample_length=2.5)
@@ -238,6 +263,7 @@ class TestEntropy(unittest.TestCase):
         self.assertRaises(ValueError, ent.fuzzy_entropy, [1, 2, 3], sample_length=2)
 
     def test_dispersion_entropy_basic(self):
+        """Return finite raw and normalized dispersion entropy."""
         de_raw = ent.dispersion_entropy(TS_SAMPLE_ENTROPY, classes=3, order=3, delay=1)
         self.assertTrue(np.isfinite(de_raw))
         self.assertGreater(de_raw, 0.0)
@@ -248,6 +274,7 @@ class TestEntropy(unittest.TestCase):
         self.assertLessEqual(de_norm, 1.0)
 
     def test_dispersion_entropy_constant_signal(self):
+        """Return zero dispersion entropy for constant signals."""
         constant_ts = np.ones(50)
         self.assertEqual(ent.dispersion_entropy(constant_ts, mapping="ncdf", normalize=False), 0.0)
         self.assertEqual(ent.dispersion_entropy(constant_ts, mapping="ncdf", normalize=True), 0.0)
@@ -258,6 +285,7 @@ class TestEntropy(unittest.TestCase):
         self.assertEqual(ent.dispersion_entropy([1, 5, 10], classes=3, order=3, delay=1), 0.0)
 
     def test_dispersion_entropy_random_noise_near_one(self):
+        """Approach maximum normalized entropy for random noise."""
         local_rng = np.random.default_rng(12345)
         noise = local_rng.standard_normal(20000)
         de_noise = ent.dispersion_entropy(noise, classes=3, order=2, delay=1, normalize=True)
@@ -265,6 +293,7 @@ class TestEntropy(unittest.TestCase):
         self.assertLessEqual(de_noise, 1.0)
 
     def test_dispersion_entropy_deterministic_and_sinusoidal(self):
+        """Distinguish deterministic and sinusoidal signals from noise."""
         x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         val_norm = ent.dispersion_entropy(x, classes=3, order=2, delay=1, normalize=True)
         self.assertEqual(round(val_norm, 3), 0.667)
@@ -278,6 +307,7 @@ class TestEntropy(unittest.TestCase):
         self.assertLess(de_sin, de_noise)
 
     def test_dispersion_entropy_mappings(self):
+        """Support case-insensitive NCDF and linear mappings."""
         signal = np.cos(np.linspace(start=0, stop=30, num=200))
         de_ncdf = ent.dispersion_entropy(signal, classes=3, order=2, delay=1, mapping="ncdf", normalize=True)
         de_linear = ent.dispersion_entropy(signal, classes=3, order=2, delay=1, mapping="linear", normalize=True)
@@ -290,6 +320,7 @@ class TestEntropy(unittest.TestCase):
         self.assertTrue(0.0 <= de_linear <= 1.0)
 
     def test_dispersion_entropy_invariance(self):
+        """Preserve dispersion entropy under affine transformations."""
         local_rng = np.random.default_rng(98765)
         x = local_rng.standard_normal(500)
         x_shifted = 3.5 * x + 10.0
@@ -300,6 +331,7 @@ class TestEntropy(unittest.TestCase):
             self.assertAlmostEqual(de_orig, de_shifted, places=10)
 
     def test_dispersion_entropy_order_and_delay(self):
+        """Keep normalized entropy bounded across orders and delays."""
         local_rng = np.random.default_rng(42)
         ts = local_rng.standard_normal(300)
         for order in [1, 2, 3, 4]:
@@ -308,6 +340,7 @@ class TestEntropy(unittest.TestCase):
                 self.assertTrue(0.0 <= de <= 1.0)
 
     def test_dispersion_entropy_large_classes_order(self):
+        """Avoid integer overflow for large class and order values."""
         local_rng = np.random.default_rng(42)
         ts = local_rng.standard_normal(100)
         de = ent.dispersion_entropy(ts, classes=10, order=20, delay=1, normalize=True)
@@ -316,6 +349,7 @@ class TestEntropy(unittest.TestCase):
         self.assertLessEqual(de, 1.0)
 
     def test_dispersion_entropy_input_types(self):
+        """Return equivalent dispersion entropy for supported input types."""
         list_data = [1, 3, 2, 5, 4, 7, 6, 8, 2, 4]
         np_float = np.array(list_data, dtype=float)
         np_int = np.array(list_data, dtype=int)
@@ -326,6 +360,7 @@ class TestEntropy(unittest.TestCase):
         self.assertAlmostEqual(res_list, res_int)
 
     def test_dispersion_entropy_invalid_inputs(self):
+        """Reject invalid dispersion entropy parameters and input shapes."""
         self.assertRaises(ValueError, ent.dispersion_entropy, np.zeros((3, 3)))
         self.assertRaises(ValueError, ent.dispersion_entropy, [1, 2], classes=3, order=3, delay=1)
         self.assertRaises(ValueError, ent.dispersion_entropy, TIME_SERIES, classes=1)
