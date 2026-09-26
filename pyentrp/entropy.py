@@ -146,13 +146,17 @@ def _count_template_matches(time_series, sample_length, tolerance):
     sample_length : int
         Length of longest template vector.
     tolerance : float
-        Tolerance for matching.
+        Strict upper bound on the Chebyshev distance between templates,
+        in the same units as the time series.
 
     Returns
     -------
     N_temp : np.ndarray
         Array of length sample_length + 1, where N_temp[0] = n * (n - 1) / 2
-        and N_temp[k] contains the number of matching template pairs of length k.
+        and n is the series length. For k >= 1, N_temp[k] counts matching
+        unordered pairs of length-k prefixes of full sample_length windows,
+        excluding self-matches. These counts are zero if fewer than two full
+        windows are available.
 
     """
     if not isinstance(time_series, np.ndarray):
@@ -190,15 +194,23 @@ def sample_entropy(time_series, sample_length, tolerance=None):
         Time series, 1-d vector
     sample_length : int
         length of longest template vector
-    tolerance : float
-        tolerance (defaults to 0.1 * std(time_series)))
+    tolerance : float, optional
+        Strict upper bound on the Chebyshev distance between templates,
+        in the same units as the time series. Defaults to 0.1 * std(time_series).
 
     Returns
     -------
     sampen: np.ndarray
-        Array of Sample Entropies SE.
-        SE[k] is the ratio `#templates of length k+1` / `#templates of length k`
-        where `#templates of length 0` = n*(n - 1) / 2, by definition
+        Array of length sample_length in nats. SE[k] is -log(N[k+1] / N[k]),
+        where N[k] counts matching pairs of length-k prefixes of full
+        sample_length windows, excluding self-matches, and
+        N[0] = n * (n - 1) / 2 for a series of length n. A zero numerator
+        with a positive denominator yields inf; two zero counts yield NaN.
+
+    Warns
+    -----
+    RuntimeWarning
+        For zero match counts, under NumPy's default error settings.
 
     Notes
     -----
@@ -480,27 +492,42 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
 def rcmse(time_series, sample_length, scale, tolerance=None):
     """Calculate Refined Composite Multiscale Entropy (RCMSE).
 
+    At each scale, pool template matches across all shifted series formed by
+    averaging non-overlapping blocks, discarding incomplete trailing blocks.
+
     Parameters
     ----------
     time_series : np.ndarray | list
         Time series for analysis.
     sample_length : int
-        Number of sequential points of the time series.
+        Longest template length. Compare matches of this length with matches
+        of length sample_length - 1, as in sample_entropy.
     scale : int
-        Scale factor.
+        Maximum scale, inclusive. Each scale is a block length in samples.
     tolerance : float, optional
-        Tolerance (default = 0.1 * std(time_series)).
+        Strict upper bound on the Chebyshev distance between templates,
+        in the same units as the time series. Defaults to 0.1 * std(time_series)
+        from the original series and remains fixed across scales.
 
     Returns
     -------
     rcmse : np.ndarray
-        Array of Refined Composite Multiscale Entropies.
+        Array of length scale in nats; index i corresponds to scale i + 1.
+        An entry is NaN if either pooled match count is zero, including when
+        the coarse-grained series are too short to provide matching pairs.
 
     Raises
     ------
     ValueError
         If scale < 1, sample_length < 1, time_series is not 1D,
         or time_series length is shorter than sample_length + 1.
+    TypeError
+        If scale or sample_length is not an integer.
+
+    Warns
+    -----
+    RuntimeWarning
+        When either pooled match count is zero at a scale; that entry is NaN.
 
     References
     ----------
@@ -566,7 +593,9 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     sample_length : int, optional
         Embedding dimension (length of template vector m). Defaults to 2.
     tolerance : float, optional
-        Tolerance radius r. Defaults to 0.2 * std(time_series).
+        Positive radius r in the same units as the time series, used in
+        exp(-(d / r)**n), where d is the Chebyshev distance between centered
+        templates. Defaults to 0.2 * std(time_series).
     n : int or float, optional
         Weight of the fuzzy boundary (power of the exponential function).
         Defaults to 2.
@@ -574,13 +603,22 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     Returns
     -------
     fuzzyen : float
-        Calculated Fuzzy Entropy.
+        Negative natural logarithm of the ratio of mean similarities for
+        lengths sample_length + 1 and sample_length, in nats. Self-matches
+        are excluded. Returns 0.0 for a constant series and NaN if either
+        mean similarity vanishes to zero.
 
     Raises
     ------
     ValueError
-        If sample_length < 1, n <= 0, tolerance <= 0, time_series is not 1D,
-        or time_series length is shorter than sample_length + 2.
+        If sample_length is not an integer or is < 1, n <= 0, an explicitly
+        supplied tolerance <= 0, time_series is not 1D, or time_series length
+        is shorter than sample_length + 2.
+
+    Warns
+    -----
+    RuntimeWarning
+        When either mean similarity vanishes to zero; the result is NaN.
 
     References
     ----------
@@ -648,7 +686,17 @@ def _validate_dispersion_params(  # noqa: PLR0913
     mapping,
     normalize,
 ):
-    """Validate dispersion entropy inputs and return the time series as an array."""
+    """Validate dispersion entropy inputs and return the time series as an array.
+
+    Raises
+    ------
+    ValueError
+        If the series is not 1D or has fewer than (order - 1) * delay + 1
+        samples; classes, order, or delay is not an integer (excluding booleans)
+        or is below its minimum of 2, 1, or 1, respectively; mapping is not
+        'ncdf' or 'linear' (case-insensitive); or normalize is not a bool.
+
+    """
     if not isinstance(time_series, np.ndarray):
         time_series = np.array(time_series)
 
@@ -680,7 +728,14 @@ def _validate_dispersion_params(  # noqa: PLR0913
 
 
 def _map_to_classes(time_series, classes, mapping):
-    """Map a time series to integer classes with the selected mapping method."""
+    """Map a time series to integer classes with the selected mapping method.
+
+    Use the normal CDF with the series mean and standard deviation for 'ncdf'
+    (case-insensitive), or min-max scaling otherwise. Return an array with the
+    same shape and class labels from 1 through classes, inclusive, or None
+    when the standard deviation or min-max range is zero, respectively.
+
+    """
     mapping_lower = mapping.lower()
     if mapping_lower == "ncdf":
         mu = np.mean(time_series)
@@ -716,16 +771,16 @@ def dispersion_entropy(  # noqa: PLR0913
     Parameters
     ----------
     time_series : list | np.ndarray
-        Time series data.
+        One-dimensional time series with at least (order - 1) * delay + 1 samples.
     classes : int, default=3
         Number of classes c used to discretize the time series (c >= 2).
     order : int, default=3
         Embedding dimension / pattern length (m >= 1).
     delay : int, default=1
-        Time delay between consecutive pattern points (d >= 1).
+        Time delay in samples between consecutive pattern points (d >= 1).
     mapping : {"ncdf", "linear"}, default="ncdf"
-        Mapping function to project the signal into the [0, 1] range:
-        - "ncdf": Normal cumulative distribution function mapping.
+        Case-insensitive mapping function to project the signal into [0, 1]:
+        - "ncdf": Normal CDF using the series mean and standard deviation.
         - "linear": Linear min-max normalization.
     normalize : bool, default=False
         If True, divide the entropy by log2(classes**order) to normalize
@@ -735,6 +790,16 @@ def dispersion_entropy(  # noqa: PLR0913
     -------
     de : float
         Dispersion Entropy in bits (or normalized between 0 and 1).
+        Returns 0.0 for a constant signal or a single observed pattern, and
+        when the absolute unnormalized entropy is below 1e-15 bits.
+
+    Raises
+    ------
+    ValueError
+        If time_series is not 1D or is too short; classes, order, or delay is
+        not an integer (excluding booleans) or is below its minimum of 2, 1,
+        or 1, respectively; mapping is not 'ncdf' or 'linear' (case-insensitive);
+        or normalize is not a bool.
 
     References
     ----------
