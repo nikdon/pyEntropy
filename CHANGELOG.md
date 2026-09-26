@@ -1,5 +1,13 @@
 # Change Log
 
+## 2.3.0 (2026-09-20)
+
+### Features
+
+- entropy: add refined composite multiscale entropy (`rcmse`)
+- entropy: add fuzzy entropy (`fuzzy_entropy`)
+- entropy: add dispersion entropy (`dispersion_entropy`)
+
 ## 2.2.0 (2026-09-15)
 
 ### Features

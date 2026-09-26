@@ -23,6 +23,9 @@ The library currently supports the following types of entropy computation:
 + Permutation Entropy ```permutation_entropy```
 + Multiscale Permutation Entropy ```multiscale_permutation_entropy```
 + Weighted Permutation Entropy ```weighted_permutation_entropy```
++ Refined Composite Multiscale Entropy ```rcmse```
++ Fuzzy Entropy ```fuzzy_entropy```
++ Dispersion Entropy ```dispersion_entropy```
 
 ## Quick start
 
