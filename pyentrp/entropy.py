@@ -1,13 +1,47 @@
 import math
 import warnings
 from collections import Counter
+from statistics import NormalDist
 
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-MIN_DISPERSION_CLASSES = 2
-MAX_SAFE_INT64_BITS = 62
-ENTROPY_EPSILON = 1e-15
+
+def _check_integer(name, value, minimum):
+    """Validate that `value` is an integer (booleans excluded) that is >= `minimum`.
+
+    Raises
+    ------
+    TypeError
+        If value is not an integer.
+    ValueError
+        If value is below the minimum.
+
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+        raise TypeError(f"{name} must be an integer, got {type(value).__name__}.")
+    if value < minimum:
+        raise ValueError(f"{name} must be an integer >= {minimum}.")
+
+
+def _validate_series(time_series):
+    """Return the time series as a 1D float array.
+
+    Raises
+    ------
+    ValueError
+        If the series is not 1D or contains NaN or infinite values.
+
+    """
+    time_series = np.asarray(time_series, dtype=float)
+
+    if time_series.ndim != 1:
+        raise ValueError("time_series must be a 1D array.")
+
+    if not np.all(np.isfinite(time_series)):
+        raise ValueError("time_series must contain only finite values.")
+
+    return time_series
 
 
 def time_delay_embedding(time_series, embedding_dimension, delay):
@@ -159,8 +193,8 @@ def _count_template_matches(time_series, sample_length, tolerance):
         windows are available.
 
     """
-    if not isinstance(time_series, np.ndarray):
-        time_series = np.asarray(time_series)
+    # Floating point input avoids wrap-around in the differences of unsigned integer series.
+    time_series = np.asarray(time_series, dtype=float)
 
     m = sample_length - 1
     n = len(time_series)
@@ -315,14 +349,14 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
         >>> # Return a value between 0 and log2(factorial(order))
-        >>> print(permutation_entropy(x, order=2))
+        >>> print(round(permutation_entropy(x, order=2), 3))
             0.918
 
     2. Normalized permutation entropy with order 3
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
         >>> # Return a value comprised between 0 and 1.
-        >>> print(permutation_entropy(x, order=3, normalize=True))
+        >>> print(round(permutation_entropy(x, order=3, normalize=True), 3))
             0.589
 
     """
@@ -415,14 +449,14 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
         >>> # Return a value between 0 and log2(factorial(order))
-        >>> print(permutation_entropy(x, order=2))
+        >>> print(round(weighted_permutation_entropy(x, order=2), 3))
             0.912
 
     2. Normalized weighted permutation entropy with order 3
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
         >>> # Return a value comprised between 0 and 1.
-        >>> print(permutation_entropy(x, order=3, normalize=True))
+        >>> print(round(weighted_permutation_entropy(x, order=3, normalize=True), 3))
             0.547
 
     """
@@ -498,7 +532,7 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
     Parameters
     ----------
     time_series : np.ndarray | list
-        Time series for analysis.
+        Time series for analysis, 1-d vector of finite values.
     sample_length : int
         Longest template length. Compare matches of this length with matches
         of length sample_length - 1, as in sample_entropy.
@@ -515,14 +549,16 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
         Array of length scale in nats; index i corresponds to scale i + 1.
         An entry is NaN if either pooled match count is zero, including when
         the coarse-grained series are too short to provide matching pairs.
+        (Unlike sample_entropy, a zero numerator gives NaN rather than inf.)
 
     Raises
     ------
-    ValueError
-        If scale < 1, sample_length < 1, time_series is not 1D,
-        or time_series length is shorter than sample_length + 1.
     TypeError
-        If scale or sample_length is not an integer.
+        If scale or sample_length is not an integer (booleans excluded).
+    ValueError
+        If scale < 1, sample_length < 1, time_series is not 1D or contains
+        non-finite values, time_series is shorter than sample_length + 1,
+        or an explicitly supplied tolerance is not greater than 0.
 
     Warns
     -----
@@ -535,17 +571,9 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
            for time series complexity analysis." IEEE Signal Processing Letters (2014).
 
     """
-    if not isinstance(time_series, np.ndarray):
-        time_series = np.array(time_series)
-
-    if time_series.ndim != 1:
-        raise ValueError("time_series must be a 1D array.")
-
-    if scale < 1:
-        raise ValueError("scale must be an integer >= 1.")
-
-    if sample_length < 1:
-        raise ValueError("sample_length must be an integer >= 1.")
+    time_series = _validate_series(time_series)
+    _check_integer("scale", scale, 1)
+    _check_integer("sample_length", sample_length, 1)
 
     if len(time_series) < sample_length + 1:
         raise ValueError(
@@ -554,6 +582,8 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
 
     if tolerance is None:
         tolerance = 0.1 * np.std(time_series)
+    elif not tolerance > 0:
+        raise ValueError("tolerance must be greater than 0.")
 
     rcmse_values = np.zeros(scale)
 
@@ -579,6 +609,10 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
     return rcmse_values
 
 
+# Descriptive alias; `rcmse` remains the primary name.
+refined_composite_multiscale_entropy = rcmse
+
+
 def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     """Calculate Fuzzy Entropy (FuzzyEn) using exponential membership function.
 
@@ -589,13 +623,14 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     Parameters
     ----------
     time_series : np.ndarray or list
-        Input time series for analysis, 1-d vector.
+        Input time series for analysis, 1-d vector of finite values.
     sample_length : int, optional
         Embedding dimension (length of template vector m). Defaults to 2.
     tolerance : float, optional
         Positive radius r in the same units as the time series, used in
         exp(-(d / r)**n), where d is the Chebyshev distance between centered
-        templates. Defaults to 0.2 * std(time_series).
+        templates. This is the form of Chen et al. (2007), without the ln(2)
+        scaling used in some later papers. Defaults to 0.2 * std(time_series).
     n : int or float, optional
         Weight of the fuzzy boundary (power of the exponential function).
         Defaults to 2.
@@ -605,15 +640,17 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     fuzzyen : float
         Negative natural logarithm of the ratio of mean similarities for
         lengths sample_length + 1 and sample_length, in nats. Self-matches
-        are excluded. Returns 0.0 for a constant series and NaN if either
-        mean similarity vanishes to zero.
+        are excluded. Returns 0.0 for a constant series (with the default
+        tolerance) and NaN if either mean similarity vanishes to zero.
 
     Raises
     ------
+    TypeError
+        If sample_length is not an integer (booleans excluded).
     ValueError
-        If sample_length is not an integer or is < 1, n <= 0, an explicitly
-        supplied tolerance <= 0, time_series is not 1D, or time_series length
-        is shorter than sample_length + 2.
+        If sample_length < 1, n <= 0, an explicitly supplied tolerance is not
+        greater than 0, time_series is not 1D or contains non-finite values,
+        or time_series is shorter than sample_length + 2.
 
     Warns
     -----
@@ -626,16 +663,10 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
            IEEE Transactions on Neural Systems and Rehabilitation Engineering 15.2 (2007): 266-272.
 
     """
-    if not isinstance(time_series, np.ndarray):
-        time_series = np.array(time_series)
+    time_series = _validate_series(time_series)
+    _check_integer("sample_length", sample_length, 1)
 
-    if time_series.ndim != 1:
-        raise ValueError("time_series must be a 1D array.")
-
-    if not isinstance(sample_length, (int, np.integer)) or sample_length < 1:
-        raise ValueError("sample_length must be an integer >= 1.")
-
-    if n <= 0:
+    if not n > 0:
         raise ValueError("n must be greater than 0.")
 
     if len(time_series) < sample_length + 2:
@@ -643,14 +674,13 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
             f"Time series length ({len(time_series)}) must be at least sample_length + 2 ({sample_length + 2})."
         )
 
-    if tolerance is not None and tolerance <= 0:
-        raise ValueError("tolerance must be greater than 0.")
-
     if tolerance is None:
         std = np.std(time_series)
         if std == 0:
             return 0.0
         tolerance = 0.2 * std
+    elif not tolerance > 0:
+        raise ValueError("tolerance must be greater than 0.")
 
     n_vectors = len(time_series) - sample_length
 
@@ -686,37 +716,34 @@ def _validate_dispersion_params(  # noqa: PLR0913
     mapping,
     normalize,
 ):
-    """Validate dispersion entropy inputs and return the time series as an array.
+    """Validate dispersion entropy inputs and return the time series as a float array.
 
     Raises
     ------
+    TypeError
+        If classes, order, or delay is not an integer (booleans excluded),
+        mapping is not a string, or normalize is not a bool.
     ValueError
-        If the series is not 1D or has fewer than (order - 1) * delay + 1
-        samples; classes, order, or delay is not an integer (excluding booleans)
-        or is below its minimum of 2, 1, or 1, respectively; mapping is not
-        'ncdf' or 'linear' (case-insensitive); or normalize is not a bool.
+        If the series is not 1D, contains non-finite values, or has fewer than
+        (order - 1) * delay + 1 samples; classes, order, or delay is below its
+        minimum of 2, 1, or 1, respectively; or mapping is not 'ncdf' or
+        'linear' (case-insensitive).
 
     """
-    if not isinstance(time_series, np.ndarray):
-        time_series = np.array(time_series)
+    time_series = _validate_series(time_series)
 
-    if time_series.ndim != 1:
-        raise ValueError("time_series must be a 1D array.")
+    _check_integer("classes", classes, 2)
+    _check_integer("order", order, 1)
+    _check_integer("delay", delay, 1)
 
-    if isinstance(classes, bool) or not isinstance(classes, (int, np.integer)) or classes < MIN_DISPERSION_CLASSES:
-        raise ValueError("classes must be an integer >= 2.")
+    if not isinstance(mapping, str):
+        raise TypeError(f"mapping must be a string, got {type(mapping).__name__}.")
 
-    if isinstance(order, bool) or not isinstance(order, (int, np.integer)) or order < 1:
-        raise ValueError("order must be an integer >= 1.")
-
-    if isinstance(delay, bool) or not isinstance(delay, (int, np.integer)) or delay < 1:
-        raise ValueError("delay must be an integer >= 1.")
-
-    if not isinstance(mapping, str) or mapping.lower() not in ("ncdf", "linear"):
+    if mapping.lower() not in ("ncdf", "linear"):
         raise ValueError("mapping must be either 'ncdf' or 'linear'.")
 
-    if not isinstance(normalize, bool):
-        raise ValueError("normalize must be a boolean.")
+    if not isinstance(normalize, (bool, np.bool_)):
+        raise TypeError(f"normalize must be a boolean, got {type(normalize).__name__}.")
 
     min_length = (order - 1) * delay + 1
     if len(time_series) < min_length:
@@ -730,28 +757,36 @@ def _validate_dispersion_params(  # noqa: PLR0913
 def _map_to_classes(time_series, classes, mapping):
     """Map a time series to integer classes with the selected mapping method.
 
-    Use the normal CDF with the series mean and standard deviation for 'ncdf'
-    (case-insensitive), or min-max scaling otherwise. Return an array with the
-    same shape and class labels from 1 through classes, inclusive, or None
-    when the standard deviation or min-max range is zero, respectively.
+    The series is first mapped to y in [0, 1] and then to the class
+    floor(classes * y) + 1, capped at ``classes``. This equals the reference
+    round(classes * y + 0.5) with ties rounded up, so values exactly on a class
+    boundary go to the higher class.
+
+    For 'ncdf' (case-insensitive), y is the normal CDF of the series with its
+    mean and standard deviation. It is evaluated exactly by comparing the
+    z-scores with the class boundaries at the quantiles k / classes of the
+    standard normal, k = 1 .. classes - 1. Otherwise, y is min-max scaling.
+
+    Return an int64 array with the same shape and class labels from 1 through
+    classes, inclusive, or None when the standard deviation or min-max range
+    is zero, respectively.
 
     """
-    mapping_lower = mapping.lower()
-    if mapping_lower == "ncdf":
-        mu = np.mean(time_series)
+    if mapping.lower() == "ncdf":
         sigma = np.std(time_series)
         if sigma == 0:
             return None
-        v_erf = np.vectorize(math.erf, otypes=[float])
-        y = 0.5 * (1.0 + v_erf((time_series - mu) / (sigma * np.sqrt(2))))
-    else:
-        min_val = np.min(time_series)
-        max_val = np.max(time_series)
-        if min_val == max_val:
-            return None
-        y = (time_series - min_val) / (max_val - min_val)
+        zscores = (time_series - np.mean(time_series)) / sigma
+        normal = NormalDist()
+        boundaries = np.array([normal.inv_cdf(k / classes) for k in range(1, classes)])
+        return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
 
-    return np.clip(np.rint(classes * y + 0.5), 1, classes).astype(np.int64)
+    min_val = np.min(time_series)
+    max_val = np.max(time_series)
+    if min_val == max_val:
+        return None
+    y = (time_series - min_val) / (max_val - min_val)
+    return np.minimum(np.floor(classes * y).astype(np.int64) + 1, classes)
 
 
 def dispersion_entropy(  # noqa: PLR0913
@@ -771,7 +806,8 @@ def dispersion_entropy(  # noqa: PLR0913
     Parameters
     ----------
     time_series : list | np.ndarray
-        One-dimensional time series with at least (order - 1) * delay + 1 samples.
+        One-dimensional series of finite values with at least
+        (order - 1) * delay + 1 samples.
     classes : int, default=3
         Number of classes c used to discretize the time series (c >= 2).
     order : int, default=3
@@ -782,6 +818,7 @@ def dispersion_entropy(  # noqa: PLR0913
         Case-insensitive mapping function to project the signal into [0, 1]:
         - "ncdf": Normal CDF using the series mean and standard deviation.
         - "linear": Linear min-max normalization.
+        Values exactly on a class boundary go to the higher class.
     normalize : bool, default=False
         If True, divide the entropy by log2(classes**order) to normalize
         the metric between 0 and 1.
@@ -790,16 +827,17 @@ def dispersion_entropy(  # noqa: PLR0913
     -------
     de : float
         Dispersion Entropy in bits (or normalized between 0 and 1).
-        Returns 0.0 for a constant signal or a single observed pattern, and
-        when the absolute unnormalized entropy is below 1e-15 bits.
+        Returns 0.0 for a constant signal or a single observed pattern.
 
     Raises
     ------
+    TypeError
+        If classes, order, or delay is not an integer (booleans excluded),
+        mapping is not a string, or normalize is not a bool.
     ValueError
-        If time_series is not 1D or is too short; classes, order, or delay is
-        not an integer (excluding booleans) or is below its minimum of 2, 1,
-        or 1, respectively; mapping is not 'ncdf' or 'linear' (case-insensitive);
-        or normalize is not a bool.
+        If time_series is not 1D, contains non-finite values, or is too short;
+        classes, order, or delay is below its minimum of 2, 1, or 1,
+        respectively; or mapping is not 'ncdf' or 'linear' (case-insensitive).
 
     References
     ----------
@@ -821,23 +859,18 @@ def dispersion_entropy(  # noqa: PLR0913
     if z is None:
         return 0.0
 
-    z_zero = z - 1
-    patterns = time_delay_embedding(z_zero, embedding_dimension=order, delay=delay).astype(np.int64)
+    patterns = time_delay_embedding(z, embedding_dimension=order, delay=delay).astype(np.int64)
 
-    if order * math.log2(classes) >= MAX_SAFE_INT64_BITS:
-        hashmult = np.array([classes**i for i in range(order)], dtype=object)
-    else:
-        hashmult = np.power(classes, np.arange(order, dtype=np.int64))
-
-    hashval = np.dot(patterns, hashmult)
-    _, counts = np.unique(hashval, return_counts=True)
-    p = counts / np.sum(counts)
+    # Count identical patterns row-wise; no integer hashing, so no overflow for large classes ** order.
+    _, counts = np.unique(patterns, axis=0, return_counts=True)
+    p = counts / counts.sum()
     de = float(-np.sum(p * np.log2(p)))
 
-    if de == 0.0 or abs(de) < ENTROPY_EPSILON:
+    # A single observed pattern gives -0.0; entropy is never negative.
+    if de <= 0.0:
         return 0.0
 
     if normalize:
-        de /= float(order * math.log2(classes))
+        de /= order * math.log2(classes)
 
-    return float(de)
+    return de
