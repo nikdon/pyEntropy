@@ -48,7 +48,7 @@ def _brute_match_counts(series, sample_length, tolerance):
 
 
 def _brute_rcmse(series, sample_length, scale, tolerance):
-    """Reference RCMSE: pool counts over all shifted coarse-grained series at each scale."""
+    """Pool counts over all shifted coarse-grained series at each scale for reference RCMSE."""
     out = []
     for k in range(1, scale + 1):
         n_prefix = n_full = 0
@@ -62,7 +62,7 @@ def _brute_rcmse(series, sample_length, scale, tolerance):
 
 
 def _brute_fuzzy(series, m, tolerance, n):
-    """Reference FuzzyEn with centred templates and exp(-(d / r) ** n) similarity."""
+    """Calculate reference FuzzyEn with centred templates and exp(-(d / r) ** n) similarity."""
     series = np.asarray(series, dtype=float)
     count = len(series) - m
 
