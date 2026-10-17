@@ -716,7 +716,14 @@ def _validate_dispersion_params(  # noqa: PLR0913
     mapping,
     normalize,
 ):
-    """Validate dispersion entropy inputs and return the time series as a float array.
+    """Validate dispersion entropy inputs and canonicalize the mapping.
+
+    Returns
+    -------
+    time_series : np.ndarray
+        The validated time series as a float array.
+    mapping : {"ncdf", "linear"}
+        The mapping name.
 
     Raises
     ------
@@ -739,9 +746,6 @@ def _validate_dispersion_params(  # noqa: PLR0913
     if not isinstance(mapping, str):
         raise TypeError(f"mapping must be a string, got {type(mapping).__name__}.")
 
-    if mapping.lower() not in ("ncdf", "linear"):
-        raise ValueError("mapping must be either 'ncdf' or 'linear'.")
-
     if not isinstance(normalize, (bool, np.bool_)):
         raise TypeError(f"normalize must be a boolean, got {type(normalize).__name__}.")
 
@@ -751,42 +755,59 @@ def _validate_dispersion_params(  # noqa: PLR0913
             f"Time series length ({len(time_series)}) must be at least (order - 1) * delay + 1 ({min_length})."
         )
 
-    return time_series
+    return time_series, mapping
 
 
 def _map_to_classes(time_series, classes, mapping):
-    """Map a time series to integer classes with the selected mapping method.
+    """Map a time series to integer classes.
 
-    The series is first mapped to y in [0, 1] and then to the class
-    floor(classes * y) + 1, capped at ``classes``. This equals the reference
-    round(classes * y + 0.5) with ties rounded up, so values exactly on a class
-    boundary go to the higher class.
+    Parameters
+    ----------
+    time_series : np.ndarray
+        Time series to map.
+    classes : int
+        Number of classes.
+    mapping : {"ncdf", "linear"}
+        Mapping used to scale values to [0, 1]. "ncdf" uses the normal CDF;
+        "linear" uses min-max scaling.
 
-    For 'ncdf' (case-insensitive), y is the normal CDF of the series with its
-    mean and standard deviation. It is evaluated exactly by comparing the
-    z-scores with the class boundaries at the quantiles k / classes of the
-    standard normal, k = 1 .. classes - 1. Otherwise, y is min-max scaling.
+    Returns
+    -------
+    class_labels : np.ndarray or None
+        An int64 array with the same shape and labels from 1 through
+        ``classes``. Return None when the standard deviation ("ncdf") or
+        min-max range ("linear") is zero.
 
-    Return an int64 array with the same shape and class labels from 1 through
-    classes, inclusive, or None when the standard deviation or min-max range
-    is zero, respectively.
+    Raises
+    ------
+    ValueError
+        If mapping is not 'ncdf' or 'linear'.
 
+    Notes
+    -----
+    A scaled value y maps to min(floor(classes * y) + 1, classes). Values on
+    class boundaries are assigned to the higher class. For "ncdf", class
+    boundaries are the standard-normal quantiles k / classes for
+    k = 1, ..., classes - 1.
     """
-    if mapping.lower() == "ncdf":
-        sigma = np.std(time_series)
-        if sigma == 0:
-            return None
-        zscores = (time_series - np.mean(time_series)) / sigma
-        normal = NormalDist()
-        boundaries = np.array([normal.inv_cdf(k / classes) for k in range(1, classes)])
-        return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
-
-    min_val = np.min(time_series)
-    max_val = np.max(time_series)
-    if min_val == max_val:
-        return None
-    y = (time_series - min_val) / (max_val - min_val)
-    return np.minimum(np.floor(classes * y).astype(np.int64) + 1, classes)
+    match mapping:
+        case "ncdf":
+            sigma = np.std(time_series)
+            if sigma == 0:
+                return None
+            zscores = (time_series - np.mean(time_series)) / sigma
+            normal = NormalDist()
+            boundaries = np.array([normal.inv_cdf(k / classes) for k in range(1, classes)])
+            return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
+        case "linear":
+            min_val = np.min(time_series)
+            max_val = np.max(time_series)
+            if min_val == max_val:
+                return None
+            y = (time_series - min_val) / (max_val - min_val)
+            return np.minimum(np.floor(classes * y).astype(np.int64) + 1, classes)
+        case _:
+            raise ValueError("mapping must be either 'ncdf' or 'linear'.")
 
 
 def dispersion_entropy(  # noqa: PLR0913
@@ -853,7 +874,7 @@ def dispersion_entropy(  # noqa: PLR0913
     0.667
 
     """
-    time_series = _validate_dispersion_params(time_series, classes, order, delay, mapping, normalize)
+    time_series, mapping = _validate_dispersion_params(time_series, classes, order, delay, mapping, normalize)
 
     z = _map_to_classes(time_series, classes, mapping)
     if z is None:
