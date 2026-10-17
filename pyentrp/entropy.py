@@ -6,6 +6,9 @@ from statistics import NormalDist
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
+# Largest pattern space (order! or classes ** order) counted with np.bincount; larger spaces use np.unique.
+_BINCOUNT_MAX_PATTERNS = 1_000_000
+
 
 def _check_integer(name, value, minimum):
     """Validate that `value` is an integer (booleans excluded) that is >= `minimum`.
@@ -60,13 +63,13 @@ def time_delay_embedding(time_series, embedding_dimension, delay):
     -------
     embedded : ndarray
         The embedded time series with shape (n_times - (order - 1) * delay, order).
+        This is a read-only view on the input data (no copy is made), so copy it
+        before modifying it in place.
 
     """
-    series_length = len(time_series)
-    embedded_series = np.empty((embedding_dimension, series_length - (embedding_dimension - 1) * delay))
-    for i in range(embedding_dimension):
-        embedded_series[i] = time_series[i * delay : i * delay + embedded_series.shape[1]]
-    return embedded_series.T
+    window = (embedding_dimension - 1) * delay + 1
+    view = sliding_window_view(time_series, window_shape=window)
+    return view[:, ::delay] if delay > 1 else view
 
 
 def util_pattern_space(time_series, lag, dim):
@@ -170,7 +173,7 @@ def shannon_entropy(time_series):
     return ent
 
 
-def _count_template_matches(time_series, sample_length, tolerance):
+def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32):
     """Count template matches of lengths 0 to sample_length using Chebyshev norm.
 
     Parameters
@@ -182,6 +185,10 @@ def _count_template_matches(time_series, sample_length, tolerance):
     tolerance : float
         Strict upper bound on the Chebyshev distance between templates,
         in the same units as the time series.
+    chunk_size : int, optional
+        Number of templates compared against all later templates at once.
+        Larger chunks mean fewer Python-level iterations but a larger
+        temporary (about chunk_size * n * 8 bytes). Does not change the result.
 
     Returns
     -------
@@ -193,24 +200,51 @@ def _count_template_matches(time_series, sample_length, tolerance):
         windows are available.
 
     """
+    if sample_length < 1:
+        raise ValueError("sample_length must be a positive integer.")
+
     # Floating point input avoids wrap-around in the differences of unsigned integer series.
     time_series = np.asarray(time_series, dtype=float)
 
-    m = sample_length - 1
     n = len(time_series)
+    n_win = n - sample_length + 1  # number of full-length windows
 
     N_temp = np.zeros(sample_length + 1)
     N_temp[0] = n * (n - 1) / 2
+    if n_win <= 1:
+        return N_temp
 
-    for i in range(n - m - 1):
-        template = time_series[i : (i + m + 1)]  # We have `sample_length` elements in the template
-        rem_time_series = time_series[i + 1 :]
+    # triu_full[r, c] is True when c >= r, i.e. when the second window starts after the first.
+    triu_full = np.triu(np.ones((chunk_size + sample_length - 1,) * 2, dtype=np.bool_))
 
-        search_list = np.arange(len(rem_time_series) - m, dtype=np.int32)
-        for length in range(1, len(template) + 1):
-            hit_list = np.abs(rem_time_series[search_list] - template[length - 1]) < tolerance
-            N_temp[length] += np.sum(hit_list)
-            search_list = search_list[hit_list] + 1
+    # windows start .. end - 1 (rows) are compared with all later windows (columns).
+    for start in range(0, n_win - 1, chunk_size):
+        end = min(start + chunk_size, n_win - 1)
+        b_len = end - start
+        w_len = n_win - start - 1
+
+        # B[r, c] is True when |x[start + r] - x[start + 1 + c]| < tolerance. Entry (r + t, c + t)
+        # is then the match of the pair (start + r, start + 1 + c) at offset t inside the templates.
+        diff = np.subtract(time_series[start : end + sample_length - 1, None], time_series[None, start + 1 :])
+        np.abs(diff, out=diff)
+        B = diff < tolerance
+
+        # Keep only pairs whose second window starts after the first (no self- or double-matches).
+        sq = min(b_len + sample_length - 2, B.shape[1])
+        if sq > 0:
+            B[:, :sq] &= triu_full[: B.shape[0], :sq]
+
+        cur = B[:b_len, :w_len].copy()
+        N_temp[1] += np.count_nonzero(cur)
+
+        # Extend the matches one sample at a time; `cur` can only shrink.
+        for length in range(2, sample_length + 1):
+            s = length - 1
+            cur &= B[s : b_len + s, s : w_len + s]
+            c = np.count_nonzero(cur)
+            if c == 0:
+                break
+            N_temp[length] += c
 
     return N_temp
 
@@ -306,6 +340,123 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
     return mse
 
 
+def _motif_lehmer_ids(x, order, delay):
+    """Encode the ordinal pattern of every window as an integer in [0, order! - 1].
+
+    The pattern is encoded as a Lehmer code (inversion table) in the factorial number
+    system. It is built from vectorized pairwise comparisons, so no per-window sorting
+    is needed. Ties are ranked by position (the earlier sample comes first), which
+    matches a stable argsort.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        1D time series.
+    order : int
+        Pattern length (>= 1).
+    delay : int
+        Time delay between the samples of a pattern.
+
+    Returns
+    -------
+    ids : np.ndarray
+        Integer array with n - (order - 1) * delay entries (smallest unsigned dtype that
+        holds order! - 1, int64 for order >= 13).
+
+    Raises
+    ------
+    ValueError
+        If the series is too short for the given order and delay.
+
+    """
+    n = len(x)
+    n_win = n - (order - 1) * delay
+    if n_win < 0:
+        raise ValueError("time_series is too short for the given order and delay.")
+
+    if order == 1:
+        return np.zeros(n_win, dtype=np.uint8)
+
+    # comps[k - 1][i] == 1 when x[i + k * delay] < x[i]
+    comps = [(x[k * delay :] < x[: n - k * delay]).view(np.uint8) for k in range(1, order)]
+    if order == 2:
+        return comps[0]
+
+    max_id = math.factorial(order)
+    dtype = (
+        np.uint8
+        if max_id <= 256
+        else (np.uint16 if max_id <= 65536 else (np.uint32 if max_id <= 4294967296 else np.int64))
+    )
+
+    # Digit 0: number of later samples that are smaller than the first sample of the window.
+    l_buf = comps[0][:n_win].copy()
+    for k in range(2, order):
+        l_buf += comps[k - 1][:n_win]
+
+    # Digit i (radix order - i): the same count for the i-th sample, Horner-style.
+    lehmer = l_buf.astype(dtype)
+    for i in range(1, order - 1):
+        s = i * delay
+        n_terms = order - 1 - i
+        lehmer *= order - i
+        if n_terms == 1:
+            lehmer += comps[0][s : s + n_win]
+        else:
+            np.copyto(l_buf, comps[0][s : s + n_win])
+            for k in range(2, n_terms + 1):
+                l_buf += comps[k - 1][s : s + n_win]
+            lehmer += l_buf
+    return lehmer
+
+
+def _window_weights(x, order, delay):
+    """Compute unnormalized, shift-invariant variance weights of every window.
+
+    Returns order**2 * var(window) for each window (computed from differences to the first
+    sample, which avoids cancellation for series with a large offset). The constant factor
+    cancels once the weights are normalized.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        1D float time series.
+    order : int
+        Window length.
+    delay : int
+        Time delay between the samples of a window.
+
+    Returns
+    -------
+    weights : np.ndarray
+        Float array with n - (order - 1) * delay entries.
+
+    """
+    n_win = len(x) - (order - 1) * delay
+    if order == 1:
+        return np.zeros(n_win)
+
+    x0 = x[:n_win]
+    d = x[delay : delay + n_win] - x0
+    if order == 2:
+        return d * d
+
+    sum_d = d.copy()
+    sum_d2 = np.square(d)
+    for k in range(2, order):
+        np.subtract(x[k * delay : k * delay + n_win], x0, out=d)
+        sum_d += d
+        np.square(d, out=d)
+        sum_d2 += d
+
+    # order * sum(d**2) - sum(d)**2 == order**2 * var(window)
+    sum_d2 *= order
+    np.square(sum_d, out=d)
+    sum_d2 -= d
+    np.maximum(sum_d2, 0.0, out=sum_d2)
+    return sum_d2
+
+
 def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     """Calculate Permutation Entropy.
 
@@ -349,31 +500,31 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
         >>> # Return a value between 0 and log2(factorial(order))
-        >>> print(round(permutation_entropy(x, order=2), 3))
-            0.918
+        >>> round(permutation_entropy(x, order=2), 3)
+        0.918
 
     2. Normalized permutation entropy with order 3
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
         >>> # Return a value comprised between 0 and 1.
-        >>> print(round(permutation_entropy(x, order=3, normalize=True), 3))
-            0.589
+        >>> round(permutation_entropy(x, order=3, normalize=True), 3)
+        0.589
 
     """
-    x = np.array(time_series)
-    hashmult = np.power(order, np.arange(order))
-    # Embed x and sort the order of permutations
-    sorted_idx = time_delay_embedding(x, embedding_dimension=order, delay=delay).argsort(kind="quicksort")
-    # Associate unique integer to each permutations
-    hashval = (np.multiply(sorted_idx, hashmult)).sum(1)
+    x = np.asarray(time_series)
+    # Associate a unique integer in [0, order! - 1] to each ordinal pattern
+    lehmer = _motif_lehmer_ids(x, order=order, delay=delay)
+    n_motifs = math.factorial(order)
     # Return the counts
-    _, c = np.unique(hashval, return_counts=True)
-    # Use np.true_divide for Python 2 compatibility
-    p = np.true_divide(c, c.sum())
-    pe = -np.multiply(p, np.log2(p)).sum()
+    if n_motifs <= _BINCOUNT_MAX_PATTERNS:
+        c = np.bincount(lehmer, minlength=n_motifs)
+    else:
+        c = np.unique(lehmer, return_counts=True)[1]
+    c = c[c > 0]
+    p = c / c.sum()
+    pe = float(-np.dot(p, np.log2(p)))
     if normalize:
-        factorial = math.factorial(order)
-        pe /= np.log2(factorial)
+        pe /= math.log2(n_motifs)
     return pe
 
 
@@ -449,38 +600,39 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
         >>> # Return a value between 0 and log2(factorial(order))
-        >>> print(round(weighted_permutation_entropy(x, order=2), 3))
-            0.912
+        >>> round(weighted_permutation_entropy(x, order=2), 3)
+        0.913
 
     2. Normalized weighted permutation entropy with order 3
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
         >>> # Return a value comprised between 0 and 1.
-        >>> print(round(weighted_permutation_entropy(x, order=3, normalize=True), 3))
-            0.547
+        >>> round(weighted_permutation_entropy(x, order=3, normalize=True), 3)
+        0.547
 
     """
-    x = time_delay_embedding(time_series, embedding_dimension=order, delay=delay)
+    x = np.asarray(time_series, dtype=np.float64)
 
-    weights = np.var(x, axis=1)
-    sorted_idx = x.argsort(kind="quicksort", axis=1)
+    lehmer = _motif_lehmer_ids(x, order=order, delay=delay)
+    weights = _window_weights(x, order=order, delay=delay)
 
-    motif_weights = {}
-    for weight, indices in zip(weights, sorted_idx, strict=True):
-        motif = tuple(indices)
-        if motif in motif_weights:
-            motif_weights[motif] += weight
-        else:
-            motif_weights[motif] = weight
+    n_motifs = math.factorial(order)
+    if n_motifs <= _BINCOUNT_MAX_PATTERNS:
+        pw = np.bincount(lehmer, weights=weights, minlength=n_motifs)
+    else:
+        _, inv = np.unique(lehmer, return_inverse=True)
+        pw = np.bincount(inv.ravel(), weights=weights)
 
-    pw = np.array(list(motif_weights.values()))
-    pw /= weights.sum()
+    # Motifs without weight (e.g. only constant windows) contribute 0 * log(0) := 0.
+    pw = pw[pw > 0]
+    if len(pw) == 0:
+        return 0.0
+    pw /= pw.sum()
 
-    b = np.log2(pw)
-    wpe = -np.dot(pw, b)
+    wpe = float(-np.dot(pw, np.log2(pw)))
 
     if normalize:
-        wpe /= np.log2(math.factorial(order))
+        wpe /= math.log2(n_motifs)
 
     return wpe
 
@@ -613,6 +765,112 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
 refined_composite_multiscale_entropy = rcmse
 
 
+def _prepare_centered_T(x, order, n_vectors, inv_tol):
+    """Prepare pre-scaled, mean-centered, transposed embedding vectors for fuzzy entropy.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        1D float time series.
+    order : int
+        Embedding dimension (window length).
+    n_vectors : int
+        Number of (leading) windows to use.
+    inv_tol : float
+        1 / tolerance. The vectors are scaled by it, so distances are already in units of
+        the tolerance.
+
+    Returns
+    -------
+    cent_T : np.ndarray or None
+        Array of shape (m_eff, n_vectors) with one row per coordinate, or None for
+        order == 1 (all centered windows are zero vectors).
+
+    """
+    if order == 1:
+        return None
+
+    x = x[: n_vectors + order - 1]
+    if order == 2:
+        # A centered 2-window is ((a - b) / 2, (b - a) / 2): one coordinate carries all the distance.
+        c0 = (x[:-1] - x[1:]) * (0.5 * inv_tol)
+        return c0[None, :]
+
+    emb = sliding_window_view(x, order)
+    cent = (emb - np.mean(emb, axis=1, keepdims=True)) * inv_tol
+    return np.ascontiguousarray(cent.T)
+
+
+def _compute_phi(cent_T, exponent, chunk_size=32):
+    """Compute the mean fuzzy similarity over all unordered pairs of distinct vectors.
+
+    Parameters
+    ----------
+    cent_T : np.ndarray or None
+        Output of `_prepare_centered_T`.
+    exponent : int or float
+        Power of the exponential membership function, exp(-d ** exponent).
+    chunk_size : int, optional
+        Number of rows processed at once. Does not change the result.
+
+    Returns
+    -------
+    phi : float
+        Mean of exp(-d ** exponent) over pairs, with d the Chebyshev distance of the
+        (already tolerance-scaled) centered vectors.
+
+    """
+    if cent_T is None:
+        return 1.0
+
+    m_eff, n_vec = cent_T.shape
+    n_pairs = n_vec * (n_vec - 1) // 2
+    total = 0.0
+
+    # triu_mask[r, c] is True when c >= r, i.e. when the column vector comes after the row vector.
+    triu_mask = np.triu(np.ones((chunk_size, chunk_size - 1), dtype=np.bool_))
+    flat_dist = np.empty(chunk_size * (n_vec - 1))
+    flat_tmp = np.empty(chunk_size * (n_vec - 1)) if m_eff > 1 else None
+
+    for start in range(0, n_vec - 1, chunk_size):
+        end = min(start + chunk_size, n_vec - 1)
+        b_len = end - start
+        w_len = n_vec - start - 1
+        size = b_len * w_len
+
+        dist_1d = flat_dist[:size]
+        dist = dist_1d.reshape(b_len, w_len)
+        np.subtract(cent_T[0, start:end, None], cent_T[0, start + 1 :], out=dist)
+
+        if m_eff > 1:
+            # Chebyshev distance: running maximum of the absolute coordinate differences.
+            np.abs(dist_1d, out=dist_1d)
+            tmp_1d = flat_tmp[:size]
+            tmp = tmp_1d.reshape(b_len, w_len)
+            for k in range(1, m_eff):
+                np.subtract(cent_T[k, start:end, None], cent_T[k, start + 1 :], out=tmp)
+                np.abs(tmp_1d, out=tmp_1d)
+                np.maximum(dist_1d, tmp_1d, out=dist_1d)
+        elif exponent != 2:
+            np.abs(dist_1d, out=dist_1d)
+
+        if exponent == 2:
+            np.square(dist_1d, out=dist_1d)
+        elif exponent != 1:
+            np.power(dist_1d, exponent, out=dist_1d)
+
+        np.negative(dist_1d, out=dist_1d)
+        np.exp(dist_1d, out=dist_1d)
+
+        # Zero out pairs (row, column) with column vector <= row vector (self- and double-counts).
+        if b_len > 1:
+            dist[:, : b_len - 1] *= triu_mask[:b_len, : b_len - 1]
+
+        total += float(np.sum(dist_1d))
+
+    return total / n_pairs
+
+
 def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     """Calculate Fuzzy Entropy (FuzzyEn) using exponential membership function.
 
@@ -682,20 +940,14 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     elif not tolerance > 0:
         raise ValueError("tolerance must be greater than 0.")
 
+    # Both lengths use the same number of vectors (the first n_vectors windows).
     n_vectors = len(time_series) - sample_length
+    inv_tol = 1.0 / tolerance
 
-    def _phi(win_len):
-        """Calculate the mean fuzzy similarity for windows of a given length."""
-        vec = sliding_window_view(time_series[: n_vectors + win_len - 1], win_len)
-        cent = vec - np.mean(vec, axis=1, keepdims=True)
-        total = 0.0
-        for i in range(n_vectors - 1):
-            d = np.max(np.abs(cent[i + 1 :] - cent[i]), axis=1)
-            total += np.sum(np.exp(-((d / tolerance) ** n)))
-        return total / (n_vectors * (n_vectors - 1) / 2)
-
-    phi_m = _phi(sample_length)
-    phi_m1 = _phi(sample_length + 1)
+    cent_m = _prepare_centered_T(time_series, sample_length, n_vectors, inv_tol)
+    cent_m1 = _prepare_centered_T(time_series, sample_length + 1, n_vectors, inv_tol)
+    phi_m = _compute_phi(cent_m, n)
+    phi_m1 = _compute_phi(cent_m1, n)
 
     if phi_m1 == 0 or phi_m == 0:
         warnings.warn(
@@ -880,10 +1132,22 @@ def dispersion_entropy(  # noqa: PLR0913
     if z is None:
         return 0.0
 
-    patterns = time_delay_embedding(z, embedding_dimension=order, delay=delay).astype(np.int64)
-
-    # Count identical patterns row-wise; no integer hashing, so no overflow for large classes ** order.
-    _, counts = np.unique(patterns, axis=0, return_counts=True)
+    # classes >= 2, so order >= 20 always exceeds the limit (this skips computing a huge integer power).
+    if order < 20 and int(classes) ** int(order) <= _BINCOUNT_MAX_PATTERNS:
+        # Small pattern space: encode each pattern as a base-`classes` integer and count with bincount.
+        n_win = len(z) - (order - 1) * delay
+        z = z - 1  # labels 0 .. classes - 1
+        hashval = z[:n_win].copy()
+        for k in range(1, order):
+            s = k * delay
+            hashval *= classes
+            hashval += z[s : s + n_win]
+        counts = np.bincount(hashval)
+        counts = counts[counts > 0]
+    else:
+        # Count identical patterns row-wise; no integer hashing, so no overflow for large classes ** order.
+        patterns = time_delay_embedding(z, embedding_dimension=order, delay=delay)
+        _, counts = np.unique(patterns, axis=0, return_counts=True)
     p = counts / counts.sum()
     de = float(-np.sum(p * np.log2(p)))
 

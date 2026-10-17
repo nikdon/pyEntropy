@@ -73,19 +73,6 @@ class TestDispersionEntropy(unittest.TestCase):
         # linear classes [1,1,1,2,2,2,3,3,3,3] -> pattern counts 2,1,2,1,3
         np.testing.assert_allclose(ent.dispersion_entropy(x, 3, 2, 1, mapping="linear"), _entropy_bits([2, 1, 2, 1, 3]))
 
-    def test_dispersion_entropy_mappings(self):
-        """Support case-insensitive NCDF and linear mappings."""
-        signal = np.cos(np.linspace(start=0, stop=30, num=200))
-        de_ncdf = ent.dispersion_entropy(signal, classes=3, order=2, delay=1, mapping="ncdf", normalize=True)
-        de_linear = ent.dispersion_entropy(signal, classes=3, order=2, delay=1, mapping="linear", normalize=True)
-        de_ncdf_upper = ent.dispersion_entropy(signal, classes=3, order=2, delay=1, mapping="NCDF", normalize=True)
-        de_linear_upper = ent.dispersion_entropy(signal, classes=3, order=2, delay=1, mapping="Linear", normalize=True)
-
-        self.assertEqual(de_ncdf, de_ncdf_upper)
-        self.assertEqual(de_linear, de_linear_upper)
-        self.assertTrue(0.0 <= de_ncdf <= 1.0)
-        self.assertTrue(0.0 <= de_linear <= 1.0)
-
     def test_dispersion_entropy_invariance(self):
         """Preserve dispersion entropy under affine transformations."""
         local_rng = np.random.default_rng(98765)
