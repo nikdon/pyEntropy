@@ -6,7 +6,7 @@ from statistics import NormalDist
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-# Largest pattern space (order! or classes ** order) counted with np.bincount; larger spaces use np.unique.
+# largest pattern space (order! or classes ** order) counted with np.bincount; larger spaces use np.unique.
 _BINCOUNT_MAX_PATTERNS = 1_000_000
 
 
@@ -149,11 +149,11 @@ def shannon_entropy(time_series):
 
     """
     if isinstance(time_series, str):
-        # Calculate frequency counts
+        # calculate frequency counts
         counter = Counter(time_series)
         total_count = len(time_series)
 
-        # Calculate frequencies and Shannon entropy
+        # calculate frequencies and Shannon entropy
         ent = 0.0
         for count in counter.values():
             freq = count / total_count
@@ -162,11 +162,11 @@ def shannon_entropy(time_series):
         ent = -ent
         return ent
 
-    # Calculate frequency counts
+    # calculate frequency counts
     _, counts = np.unique(time_series, return_counts=True)
     total_count = len(time_series)
 
-    # Calculate frequencies and Shannon entropy
+    # calculate frequencies and Shannon entropy
     frequencies = counts / total_count
     ent = -np.sum(frequencies * np.log2(frequencies))
 
@@ -203,7 +203,7 @@ def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32
     if sample_length < 1:
         raise ValueError("sample_length must be a positive integer.")
 
-    # Floating point input avoids wrap-around in the differences of unsigned integer series.
+    # Floating point input avoids wrap-around in the differences of unsigned integer series
     time_series = np.asarray(time_series, dtype=float)
 
     n = len(time_series)
@@ -214,22 +214,22 @@ def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32
     if n_win <= 1:
         return N_temp
 
-    # triu_full[r, c] is True when c >= r, i.e. when the second window starts after the first.
+    # triu_full[r, c] is True when c >= r, i.e. when the second window starts after the first
     triu_full = np.triu(np.ones((chunk_size + sample_length - 1,) * 2, dtype=np.bool_))
 
-    # windows start .. end - 1 (rows) are compared with all later windows (columns).
+    # windows start .. end - 1 (rows) are compared with all later windows (columns)
     for start in range(0, n_win - 1, chunk_size):
         end = min(start + chunk_size, n_win - 1)
         b_len = end - start
         w_len = n_win - start - 1
 
         # B[r, c] is True when |x[start + r] - x[start + 1 + c]| < tolerance. Entry (r + t, c + t)
-        # is then the match of the pair (start + r, start + 1 + c) at offset t inside the templates.
+        # is then the match of the pair (start + r, start + 1 + c) at offset t inside the templates
         diff = np.subtract(time_series[start : end + sample_length - 1, None], time_series[None, start + 1 :])
         np.abs(diff, out=diff)
         B = diff < tolerance
 
-        # Keep only pairs whose second window starts after the first (no self- or double-matches).
+        # keep only pairs whose second window starts after the first (no self- or double-matches)
         sq = min(b_len + sample_length - 2, B.shape[1])
         if sq > 0:
             B[:, :sq] &= triu_full[: B.shape[0], :sq]
@@ -237,7 +237,7 @@ def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32
         cur = B[:b_len, :w_len].copy()
         N_temp[1] += np.count_nonzero(cur)
 
-        # Extend the matches one sample at a time; `cur` can only shrink.
+        # extend the matches one sample at a time; `cur` can only shrink
         for length in range(2, sample_length + 1):
             s = length - 1
             cur &= B[s : b_len + s, s : w_len + s]
@@ -389,12 +389,12 @@ def _motif_lehmer_ids(x, order, delay):
         else (np.uint16 if max_id <= 65536 else (np.uint32 if max_id <= 4294967296 else np.int64))
     )
 
-    # Digit 0: number of later samples that are smaller than the first sample of the window.
+    # digit 0: number of later samples that are smaller than the first sample of the window
     l_buf = comps[0][:n_win].copy()
     for k in range(2, order):
         l_buf += comps[k - 1][:n_win]
 
-    # Digit i (radix order - i): the same count for the i-th sample, Horner-style.
+    # digit i (radix order - i): the same count for the i-th sample, Horner-style
     lehmer = l_buf.astype(dtype)
     for i in range(1, order - 1):
         s = i * delay
@@ -506,16 +506,16 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     2. Normalized permutation entropy with order 3
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
-        >>> # Return a value comprised between 0 and 1.
+        >>> # Return a value comprised between 0 and 1
         >>> round(permutation_entropy(x, order=3, normalize=True), 3)
         0.589
 
     """
     x = np.asarray(time_series)
-    # Associate a unique integer in [0, order! - 1] to each ordinal pattern
+    # associate a unique integer in [0, order! - 1] to each ordinal pattern
     lehmer = _motif_lehmer_ids(x, order=order, delay=delay)
     n_motifs = math.factorial(order)
-    # Return the counts
+    # return the counts
     if n_motifs <= _BINCOUNT_MAX_PATTERNS:
         c = np.bincount(lehmer, minlength=n_motifs)
     else:
@@ -606,7 +606,7 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     2. Normalized weighted permutation entropy with order 3
 
         >>> x = [4, 7, 9, 10, 6, 11, 3]
-        >>> # Return a value comprised between 0 and 1.
+        >>> # Return a value comprised between 0 and 1
         >>> round(weighted_permutation_entropy(x, order=3, normalize=True), 3)
         0.547
 
@@ -623,7 +623,7 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
         _, inv = np.unique(lehmer, return_inverse=True)
         pw = np.bincount(inv.ravel(), weights=weights)
 
-    # Motifs without weight (e.g. only constant windows) contribute 0 * log(0) := 0.
+    # motifs without weight (e.g. only constant windows) contribute 0 * log(0) := 0
     pw = pw[pw > 0]
     if len(pw) == 0:
         return 0.0
@@ -792,7 +792,7 @@ def _prepare_centered_T(x, order, n_vectors, inv_tol):
 
     x = x[: n_vectors + order - 1]
     if order == 2:
-        # A centered 2-window is ((a - b) / 2, (b - a) / 2): one coordinate carries all the distance.
+        # a centered 2-window is ((a - b) / 2, (b - a) / 2): one coordinate carries all the distance
         c0 = (x[:-1] - x[1:]) * (0.5 * inv_tol)
         return c0[None, :]
 
@@ -827,7 +827,7 @@ def _compute_phi(cent_T, exponent, chunk_size=32):
     n_pairs = n_vec * (n_vec - 1) // 2
     total = 0.0
 
-    # triu_mask[r, c] is True when c >= r, i.e. when the column vector comes after the row vector.
+    # triu_mask[r, c] is True when c >= r, i.e. when the column vector comes after the row vector
     triu_mask = np.triu(np.ones((chunk_size, chunk_size - 1), dtype=np.bool_))
     flat_dist = np.empty(chunk_size * (n_vec - 1))
     flat_tmp = np.empty(chunk_size * (n_vec - 1)) if m_eff > 1 else None
@@ -843,7 +843,7 @@ def _compute_phi(cent_T, exponent, chunk_size=32):
         np.subtract(cent_T[0, start:end, None], cent_T[0, start + 1 :], out=dist)
 
         if m_eff > 1:
-            # Chebyshev distance: running maximum of the absolute coordinate differences.
+            # chebyshev distance: running maximum of the absolute coordinate differences
             np.abs(dist_1d, out=dist_1d)
             tmp_1d = flat_tmp[:size]
             tmp = tmp_1d.reshape(b_len, w_len)
@@ -862,7 +862,7 @@ def _compute_phi(cent_T, exponent, chunk_size=32):
         np.negative(dist_1d, out=dist_1d)
         np.exp(dist_1d, out=dist_1d)
 
-        # Zero out pairs (row, column) with column vector <= row vector (self- and double-counts).
+        # zero out pairs (row, column) with column vector <= row vector (self- and double-counts)
         if b_len > 1:
             dist[:, : b_len - 1] *= triu_mask[:b_len, : b_len - 1]
 
@@ -940,7 +940,7 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     elif not tolerance > 0:
         raise ValueError("tolerance must be greater than 0.")
 
-    # Both lengths use the same number of vectors (the first n_vectors windows).
+    # both lengths use the same number of vectors (the first n_vectors windows)
     n_vectors = len(time_series) - sample_length
     inv_tol = 1.0 / tolerance
 
@@ -1132,9 +1132,9 @@ def dispersion_entropy(  # noqa: PLR0913
     if z is None:
         return 0.0
 
-    # classes >= 2, so order >= 20 always exceeds the limit (this skips computing a huge integer power).
+    # classes >= 2, so order >= 20 always exceeds the limit (this skips computing a huge integer power)
     if order < 20 and int(classes) ** int(order) <= _BINCOUNT_MAX_PATTERNS:
-        # Small pattern space: encode each pattern as a base-`classes` integer and count with bincount.
+        # small pattern space: encode each pattern as a base-`classes` integer and count with bincount
         n_win = len(z) - (order - 1) * delay
         z = z - 1  # labels 0 .. classes - 1
         hashval = z[:n_win].copy()
@@ -1145,13 +1145,12 @@ def dispersion_entropy(  # noqa: PLR0913
         counts = np.bincount(hashval)
         counts = counts[counts > 0]
     else:
-        # Count identical patterns row-wise; no integer hashing, so no overflow for large classes ** order.
+        # count identical patterns row-wise; no integer hashing, so no overflow for large classes ** order
         patterns = time_delay_embedding(z, embedding_dimension=order, delay=delay)
         _, counts = np.unique(patterns, axis=0, return_counts=True)
     p = counts / counts.sum()
     de = float(-np.sum(p * np.log2(p)))
 
-    # A single observed pattern gives -0.0; entropy is never negative.
     if de <= 0.0:
         return 0.0
 
