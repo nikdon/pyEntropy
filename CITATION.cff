@@ -1,11 +1,22 @@
 cff-version: 1.2.0
+title: "pyEntropy: Entropy for Python"
 message: "If you use this software, please cite it as below."
+type: "software"
 authors:
   - family-names: "Donets"
     given-names: "Nikolay"
     orcid: "https://orcid.org/0009-0008-2912-6615"
 title: "pyEntropy"
 version: 2.3.0
+license: Apache-2.0
+repository-code: "https://github.com/nikdon/pyEntropy"
+url: "https://pypi.org/project/pyentrp/"
+abstract: "A lightweight Python library for calculating various entropy measures"
 doi: "10.5281/zenodo.17727789"
 date-released: "2026-09-20"
-url: "https://github.com/nikdon/pyEntropy"
+keywords:
+  - "entropy"
+  - "time-series"
+  - "sample-entropy"
+  - "mutiscale-entropy"
+  - "permutation-entropy"
