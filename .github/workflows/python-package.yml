@@ -21,6 +21,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
+      id: setup-python
       uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
@@ -36,9 +37,8 @@ jobs:
       uses: actions/cache@v6
       with:
         path: .venv
-        key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        key: venv-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'poetry.lock') }}
     - name: Install dependencies
-      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       run: poetry install --no-interaction
     - name: Check formatting with ruff
       run: poetry run ruff format . --check --diff
