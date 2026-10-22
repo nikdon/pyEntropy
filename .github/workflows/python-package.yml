@@ -21,7 +21,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
-      id: serup-python
+      id: setup-python
       uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
