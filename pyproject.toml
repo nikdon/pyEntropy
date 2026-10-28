@@ -97,5 +97,8 @@ ignore = [
   "PLR2004"
 ]
 
+[tool.ruff.lint.pylint]
+max-positional-args = 6
+
 [tool.ruff.lint.per-file-ignores]
 "**/{tests}/*" = ["D101", "D102", "D103"]
