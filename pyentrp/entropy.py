@@ -1041,6 +1041,7 @@ def _map_to_classes(time_series, classes, mapping):
     class boundaries are assigned to the higher class. For "ncdf", class
     boundaries are the standard-normal quantiles k / classes for
     k = 1, ..., classes - 1.
+
     """
     match mapping:
         case "ncdf":
