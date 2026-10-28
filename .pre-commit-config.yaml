@@ -11,6 +11,7 @@ repos:
       - id: check-merge-conflict
       - id: name-tests-test
         args: ["--pytest-test-first"]
+        exclude: ^tests/_(entropy_test_data|template_match_reference)[.]py$
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.18.1
@@ -25,11 +26,11 @@ repos:
       - id: ruff format
         name: Ruff formatting
         language: system
-        entry: ruff format .
+        entry: poetry run ruff format .
         pass_filenames: false
 
       - id: ruff checks and fixes
         name: ruff checks and fixes
         language: system
-        entry: ruff check . --fix
+        entry: poetry run ruff check . --fix
         pass_filenames: false
