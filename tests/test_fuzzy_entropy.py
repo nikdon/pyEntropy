@@ -145,3 +145,15 @@ class TestFuzzySign(unittest.TestCase):
         """Return +0.0 (not -0.0) for a constant series with an explicit tolerance."""
         value = ent.fuzzy_entropy(np.ones(50), tolerance=0.2)
         self.assertEqual(np.copysign(1.0, value), 1.0)
+
+
+class TestFuzzyConstantSeries(unittest.TestCase):
+    def test_constant_float_series_is_zero(self):
+        """Return +0.0 for constant series whose std is a tiny nonzero number, e.g. np.full(61, 0.1)."""
+        for value in (0.1, 0.3, 1 / 3, 7.0):
+            series = np.full(61, value)
+            res = ent.fuzzy_entropy(series, 2)
+            self.assertEqual(res, 0.0)
+            self.assertEqual(math.copysign(1.0, res), 1.0)
+            # same as any explicit tolerance
+            self.assertEqual(ent.fuzzy_entropy(series, 2, tolerance=0.5), res)

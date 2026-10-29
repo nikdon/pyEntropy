@@ -90,6 +90,43 @@ def _default_tolerance(time_series, factor):
     return factor * np.std(time_series)
 
 
+def _resolve_tolerance(time_series, tolerance, factor):
+    """Return the tolerance to use: the default factor * std(time_series) if None, else the checked value."""
+    if tolerance is None:
+        return _default_tolerance(time_series, factor)
+    _check_tolerance(tolerance)
+    return tolerance
+
+
+def _count_ids(ids, n_space, weights=None):
+    """Count (or sum weights of) integer pattern ids in [0, n_space - 1].
+
+    Small pattern spaces use np.bincount over the whole space; larger ones relabel the observed ids
+    with np.unique first, so memory stays proportional to the number of windows. Zero entries
+    may be present in the result.
+
+    """
+    if n_space <= _BINCOUNT_MAX_PATTERNS:
+        return np.bincount(ids, weights=weights, minlength=n_space)
+    _, inv = np.unique(ids, return_inverse=True)
+    return np.bincount(inv.ravel(), weights=weights)
+
+
+def _entropy_bits(weights):
+    """Return the Shannon entropy in bits of the distribution proportional to `weights`.
+
+    Zero weights are ignored (0 * log 0 := 0). Gives +0.0, never -0.0, when a single symbol
+    has all the weight or when there is no weight at all.
+
+    """
+    w = weights[weights > 0]
+    if w.size == 0:
+        return 0.0
+    p = w / w.sum()
+    h = float(-np.dot(p, np.log2(p)))
+    return h if h > 0.0 else 0.0
+
+
 def _check_embedding_length(time_series, order, delay):
     """Check that the series holds at least one window of `order` samples spaced `delay` apart.
 
@@ -234,11 +271,7 @@ def shannon_entropy(time_series):
 
     if counts.size == 0:
         raise ValueError("time_series must not be empty.")
-
-    p = counts / counts.sum()
-    ent = float(-np.dot(p, np.log2(p)))
-    # a single symbol gives -0.0
-    return ent if ent > 0.0 else 0.0
+    return _entropy_bits(counts)
 
 
 def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32):
@@ -374,10 +407,7 @@ def sample_entropy(time_series, sample_length, tolerance=None):
     time_series = _validate_series(time_series)
     _check_integer("sample_length", sample_length, 1)
 
-    if tolerance is None:
-        tolerance = _default_tolerance(time_series, 0.1)
-    else:
-        _check_tolerance(tolerance)
+    tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
 
     N_temp = _count_template_matches(time_series, sample_length, tolerance)
     sampen = np.log(N_temp[:-1] / N_temp[1:])
@@ -425,10 +455,7 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=20):
     time_series = _validate_series(time_series)
     _check_integer("sample_length", sample_length, 1)
 
-    if tolerance is None:
-        tolerance = _default_tolerance(time_series, 0.1)
-    else:
-        _check_tolerance(tolerance)
+    tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
 
     if maxscale is None:
         maxscale = 20
@@ -627,20 +654,10 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     _check_integer("delay", delay, 1)
     _check_embedding_length(x, order, delay)
     # associate a unique integer in [0, order! - 1] to each ordinal pattern
-    lehmer = _motif_lehmer_ids(x, order=order, delay=delay)
     n_motifs = math.factorial(order)
-    # return the counts
-    if n_motifs <= _BINCOUNT_MAX_PATTERNS:
-        c = np.bincount(lehmer, minlength=n_motifs)
-    else:
-        c = np.unique(lehmer, return_counts=True)[1]
-    c = c[c > 0]
-    p = c / c.sum()
-    pe = float(-np.dot(p, np.log2(p)))
-    if pe <= 0.0:
-        return 0.0  # a single pattern; avoid returning -0.0
-    # order 1 has a single pattern, so the entropy is 0 and there is nothing to normalize by
-    if normalize and n_motifs > 1:
+    pe = _entropy_bits(_count_ids(_motif_lehmer_ids(x, order, delay), n_motifs))
+    # order 1 has a single pattern, so pe is 0 and there is nothing to normalize by
+    if normalize and pe > 0.0:
         pe /= math.log2(n_motifs)
     return pe
 
@@ -779,25 +796,10 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     weights = _window_weights(x.astype(np.float64, copy=False), order=order, delay=delay)
 
     n_motifs = math.factorial(order)
-    if n_motifs <= _BINCOUNT_MAX_PATTERNS:
-        pw = np.bincount(lehmer, weights=weights, minlength=n_motifs)
-    else:
-        _, inv = np.unique(lehmer, return_inverse=True)
-        pw = np.bincount(inv.ravel(), weights=weights)
-
-    # motifs without weight (e.g. only constant windows) contribute 0 * log(0) := 0
-    pw = pw[pw > 0]
-    if len(pw) == 0:
-        return 0.0
-    pw /= pw.sum()
-
-    wpe = float(-np.dot(pw, np.log2(pw)))
-    if wpe <= 0.0:
-        return 0.0  # a single weighted pattern; avoid returning -0.0
-
-    if normalize:
+    # motifs without weight (e.g. only constant windows) contribute nothing
+    wpe = _entropy_bits(_count_ids(lehmer, n_motifs, weights))
+    if normalize and wpe > 0.0:
         wpe /= math.log2(n_motifs)
-
     return wpe
 
 
@@ -840,10 +842,7 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
     _check_integer("sample_length", sample_length, 1)
     _check_integer("scale", scale, 1)
 
-    if tolerance is None:
-        tolerance = _default_tolerance(time_series, 0.1)
-    else:
-        _check_tolerance(tolerance)
+    tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
 
     cmse = np.zeros(scale)
 
@@ -913,10 +912,7 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
             f"Time series length ({len(time_series)}) must be at least sample_length + 1 ({sample_length + 1})."
         )
 
-    if tolerance is None:
-        tolerance = _default_tolerance(time_series, 0.1)
-    else:
-        _check_tolerance(tolerance)
+    tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
 
     rcmse_values = np.zeros(scale)
 
@@ -1115,13 +1111,7 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
             f"Time series length ({len(time_series)}) must be at least sample_length + 2 ({sample_length + 2})."
         )
 
-    if tolerance is None:
-        std = np.std(time_series)
-        if std == 0:
-            return 0.0
-        tolerance = 0.2 * std
-    else:
-        _check_tolerance(tolerance)
+    tolerance = _resolve_tolerance(time_series, tolerance, 0.2)
 
     # both lengths use the same number of vectors (the first n_vectors windows)
     n_vectors = len(time_series) - sample_length
@@ -1158,7 +1148,7 @@ def _validate_dispersion_params(  # noqa: PLR0913
     time_series : np.ndarray
         The validated time series as a float array.
     mapping : {"ncdf", "linear"}
-        The mapping name.
+        The mapping name, lowercased.
 
     Raises
     ------
@@ -1184,9 +1174,13 @@ def _validate_dispersion_params(  # noqa: PLR0913
     if not isinstance(normalize, (bool, np.bool_)):
         raise TypeError(f"normalize must be a boolean, got {type(normalize).__name__}.")
 
+    mapping = mapping.lower()
+    if mapping not in ("ncdf", "linear"):
+        raise ValueError("mapping must be either 'ncdf' or 'linear'.")
+
     _check_embedding_length(time_series, order, delay)
 
-    return time_series, mapping.lower()
+    return time_series, mapping
 
 
 def _map_to_classes(time_series, classes, mapping):
@@ -1206,13 +1200,7 @@ def _map_to_classes(time_series, classes, mapping):
     -------
     class_labels : np.ndarray or None
         An int64 array with the same shape and labels from 1 through
-        ``classes``. Return None when the standard deviation ("ncdf") or
-        min-max range ("linear") is zero.
-
-    Raises
-    ------
-    ValueError
-        If mapping is not 'ncdf' or 'linear'.
+        ``classes``. Return None for a constant series.
 
     Notes
     -----
@@ -1222,24 +1210,19 @@ def _map_to_classes(time_series, classes, mapping):
     k = 1, ..., classes - 1.
 
     """
-    match mapping:
-        case "ncdf":
-            sigma = np.std(time_series)
-            if sigma == 0:
-                return None
-            zscores = (time_series - np.mean(time_series)) / sigma
-            normal = NormalDist()
-            boundaries = np.array([normal.inv_cdf(k / classes) for k in range(1, classes)])
-            return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
-        case "linear":
-            min_val = np.min(time_series)
-            max_val = np.max(time_series)
-            if min_val == max_val:
-                return None
-            y = (time_series - min_val) / (max_val - min_val)
-            return np.minimum(np.floor(classes * y).astype(np.int64) + 1, classes)
-        case _:
-            raise ValueError("mapping must be either 'ncdf' or 'linear'.")
+    # checked with the range, not the std: the std of a constant float series can be a tiny nonzero number
+    if np.ptp(time_series) == 0:
+        return None
+
+    if mapping == "ncdf":
+        zscores = (time_series - np.mean(time_series)) / np.std(time_series)
+        normal = NormalDist()
+        boundaries = np.array([normal.inv_cdf(k / classes) for k in range(1, classes)])
+        return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
+
+    min_val = np.min(time_series)
+    y = (time_series - min_val) / (np.max(time_series) - min_val)
+    return np.minimum(np.floor(classes * y).astype(np.int64) + 1, classes)
 
 
 def dispersion_entropy(  # noqa: PLR0913
@@ -1312,29 +1295,23 @@ def dispersion_entropy(  # noqa: PLR0913
     if z is None:
         return 0.0
 
-    # classes >= 2, so order >= 20 always exceeds the limit (this skips computing a huge integer power)
-    if order < 20 and int(classes) ** int(order) <= _BINCOUNT_MAX_PATTERNS:
-        # small pattern space: encode each pattern as a base-`classes` integer and count with bincount
+    n_patterns = int(classes) ** int(order)  # a Python int, so it cannot overflow
+    if n_patterns <= _BINCOUNT_MAX_PATTERNS:
+        # encode each pattern as a base-`classes` integer
         n_win = len(z) - (order - 1) * delay
         z = z - 1  # labels 0 .. classes - 1
-        hashval = z[:n_win].copy()
+        ids = z[:n_win].copy()
         for k in range(1, order):
             s = k * delay
-            hashval *= classes
-            hashval += z[s : s + n_win]
-        counts = np.bincount(hashval)
-        counts = counts[counts > 0]
+            ids *= classes
+            ids += z[s : s + n_win]
+        counts = _count_ids(ids, n_patterns)
     else:
-        # count identical patterns row-wise; no integer hashing, so no overflow for large classes ** order
+        # count identical rows; no integer encoding, which could overflow int64
         patterns = time_delay_embedding(z, embedding_dimension=order, delay=delay)
         _, counts = np.unique(patterns, axis=0, return_counts=True)
-    p = counts / counts.sum()
-    de = float(-np.sum(p * np.log2(p)))
 
-    if de <= 0.0:
-        return 0.0
-
-    if normalize:
+    de = _entropy_bits(counts)
+    if normalize and de > 0.0:
         de /= order * math.log2(classes)
-
     return de

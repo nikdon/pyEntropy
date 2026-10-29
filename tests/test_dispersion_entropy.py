@@ -238,3 +238,13 @@ class TestDispersionEntropy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDispersionConstantSeries(unittest.TestCase):
+    def test_constant_float_series_is_zero(self):
+        """Return +0.0 for constant series whose std is a tiny nonzero number, e.g. np.full(61, 0.1)."""
+        for value in (0.1, 0.3, 1 / 3):
+            for mapping in ("ncdf", "linear"):
+                res = ent.dispersion_entropy(np.full(61, value), mapping=mapping)
+                self.assertEqual(res, 0.0)
+                self.assertEqual(math.copysign(1.0, res), 1.0)
