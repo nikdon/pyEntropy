@@ -81,7 +81,9 @@ scale 5: 1.502
 
 ## Parameters
 
-- `sample_length` equals m + 1. `sample_entropy(x, 3)` returns SampEn for m = 0, 1, 2, so `[-1]` is m = 2.
+- For sample entropy and its multiscale variants, `sample_length` equals m + 1.
+  `sample_entropy(x, 3)` returns SampEn for m = 0, 1, 2, so `[-1]` is m = 2.
+  For `fuzzy_entropy`, `sample_length` is the embedding dimension m directly.
 - `tolerance` is absolute, in the units of your signal. Default: `0.1 * std(x)` for sample, multiscale and refined
   composite entropy; `0.2 * std(x)` for fuzzy entropy. For the common r = 0.2 SD pass `tolerance=0.2 * np.std(x)`.
 - Fuzzy entropy uses the membership function `exp(-(d / r)**n)` [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025).
