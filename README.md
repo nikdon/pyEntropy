@@ -86,6 +86,8 @@ scale 5: 1.502
   For `fuzzy_entropy`, `sample_length` is the embedding dimension m directly.
 - `tolerance` is absolute, in the units of your signal. Default: `0.1 * std(x)` for sample, multiscale and refined
   composite entropy; `0.2 * std(x)` for fuzzy entropy. For the common r = 0.2 SD pass `tolerance=0.2 * np.std(x)`.
+- `multiscale_entropy` computes scales 1 to `maxscale` (default 20, as in Costa et al. 2002).
+- Permutation entropy orders go up to 20.
 - Fuzzy entropy uses the membership function `exp(-(d / r)**n)` [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025).
 - Ties in permutation entropy are ranked by position (stable ordering).
 

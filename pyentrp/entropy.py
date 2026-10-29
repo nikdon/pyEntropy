@@ -9,22 +9,27 @@ from numpy.lib.stride_tricks import sliding_window_view
 # largest pattern space (order! or classes ** order) counted with np.bincount; larger spaces use np.unique.
 _BINCOUNT_MAX_PATTERNS = 1_000_000
 
+# largest permutation order: pattern ids go up to order! - 1, and 20! - 1 is the last that fits in int64.
+_MAX_PERMUTATION_ORDER = 20
 
-def _check_integer(name, value, minimum):
-    """Validate that `value` is an integer (booleans excluded) that is >= `minimum`.
+
+def _check_integer(name, value, minimum, maximum=None):
+    """Validate that `value` is an integer (booleans excluded) in [minimum, maximum].
 
     Raises
     ------
     TypeError
         If value is not an integer.
     ValueError
-        If value is below the minimum.
+        If value is below the minimum or above the maximum (when given).
 
     """
     if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
         raise TypeError(f"{name} must be an integer, got {type(value).__name__}.")
     if value < minimum:
         raise ValueError(f"{name} must be an integer >= {minimum}.")
+    if maximum is not None and value > maximum:
+        raise ValueError(f"{name} must be an integer <= {maximum}.")
 
 
 def _validate_series(time_series):
@@ -127,38 +132,36 @@ def time_delay_embedding(time_series, embedding_dimension, delay):
 def util_pattern_space(time_series, lag, dim):
     """Create a set of sequences with a given lag and dimension.
 
+    Same as ``time_delay_embedding(time_series, dim, lag)``, returned as a writable float copy.
+
     Parameters
     ----------
-    time_series : np.ndarray
-        Vector or string of the sample data
+    time_series : np.ndarray | list
+        1D series of finite values.
     lag : int
-        Lag between the beginning of sequences
+        Lag between consecutive samples of a sequence.
     dim : int
-        Dimension (number of patterns)
+        Number of samples in a sequence.
 
     Returns
     -------
     pattern_space: np.ndarray
-        2D array of vectors
+        Float array of shape (n - lag * (dim - 1), dim).
 
     Raises
     ------
-    ValueError: If the lag is less than 1 or the result matrix exceeds the size limit.
+    TypeError
+        If lag or dim is not an integer (booleans excluded).
+    ValueError
+        If lag or dim is below 1, time_series is not 1D or contains non-finite
+        values, or has fewer than lag * (dim - 1) + 1 samples.
 
     """
-    n = len(time_series)
-
-    if lag < 1:
-        raise ValueError("Lag should be greater than or equal to 1.")
-
-    if lag * dim > n:
-        raise ValueError("Result matrix size limit exceeded. Adjust the lag or dim value.")
-
-    pattern_space = np.zeros((n - lag * (dim - 1), dim))
-    for i in range(dim):
-        pattern_space[:, i] = time_series[i * lag : i * lag + n - lag * (dim - 1)]
-
-    return pattern_space
+    time_series = _validate_series(time_series)
+    _check_integer("lag", lag, 1)
+    _check_integer("dim", dim, 1)
+    _check_embedding_length(time_series, dim, lag)
+    return time_delay_embedding(time_series, dim, lag).copy()
 
 
 def util_granulate_time_series(time_series, scale):
@@ -199,38 +202,32 @@ def shannon_entropy(time_series):
 
     Parameters
     ----------
-    time_series: np.ndarray | list[str]
-        Vector or string of the sample data
+    time_series: np.ndarray | list | str
+        Sample data; each distinct value (or character of a string) is a symbol.
 
     Returns
     -------
     ent: float
-        The Shannon Entropy as float value
+        The Shannon Entropy in bits; 0.0 when only one symbol occurs.
+
+    Raises
+    ------
+    ValueError
+        If time_series is empty.
 
     """
     if isinstance(time_series, str):
-        # calculate frequency counts
-        counter = Counter(time_series)
-        total_count = len(time_series)
+        counts = np.fromiter(Counter(time_series).values(), dtype=float)
+    else:
+        _, counts = np.unique(time_series, return_counts=True)
 
-        # calculate frequencies and Shannon entropy
-        ent = 0.0
-        for count in counter.values():
-            freq = count / total_count
-            ent += freq * np.log2(freq)
+    if counts.size == 0:
+        raise ValueError("time_series must not be empty.")
 
-        ent = -ent
-        return ent
-
-    # calculate frequency counts
-    _, counts = np.unique(time_series, return_counts=True)
-    total_count = len(time_series)
-
-    # calculate frequencies and Shannon entropy
-    frequencies = counts / total_count
-    ent = -np.sum(frequencies * np.log2(frequencies))
-
-    return ent
+    p = counts / counts.sum()
+    ent = float(-np.dot(p, np.log2(p)))
+    # a single symbol gives -0.0
+    return ent if ent > 0.0 else 0.0
 
 
 def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32):
@@ -326,7 +323,9 @@ def sample_entropy(time_series, sample_length, tolerance=None):
         Strict upper bound on the Chebyshev distance between templates,
         in the same units as the time series. Defaults to 0.1 * std(time_series);
         for a constant series any positive tolerance gives the same result, which
-        is used instead of 0.
+        is used instead of 0. The multiscale functions share this default, while
+        fuzzy_entropy uses 0.2 * std. Pass tolerance=0.2 * np.std(x) for the
+        common r = 0.2 SD.
 
     Returns
     -------
@@ -374,7 +373,7 @@ def sample_entropy(time_series, sample_length, tolerance=None):
     return sampen
 
 
-def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None):
+def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=20):
     """Calculate Multiscale Entropy considering different time-scales of the time series.
 
     Parameters
@@ -386,8 +385,11 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
     tolerance : float
         Tolerance value (default is 0.1 times the standard deviation of the `time_series`;
         a constant series is treated as in `sample_entropy`)
-    maxscale : int
-        Maximum timescale (default is the length of the `time_series`)
+    maxscale : int, default=20
+        Maximum scale, inclusive. The default is the range of scales used by
+        Costa et al. (2002). None is accepted as an alias for 20. A scale whose
+        coarse-grained series is too short for matching pairs gives NaN or inf,
+        with a RuntimeWarning.
 
     Returns
     -------
@@ -418,9 +420,8 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
         _check_tolerance(tolerance)
 
     if maxscale is None:
-        maxscale = len(time_series)
-    else:
-        _check_integer("maxscale", maxscale, 1)
+        maxscale = 20
+    _check_integer("maxscale", maxscale, 1)
 
     mse = np.zeros(maxscale)
     for i in range(maxscale):
@@ -604,12 +605,13 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     TypeError
         If order or delay is not an integer (booleans excluded).
     ValueError
-        If order or delay is below 1, time_series is not 1D or contains
-        non-finite values, or has fewer than (order - 1) * delay + 1 samples.
+        If order or delay is below 1, order is above 20, time_series is not 1D
+        or contains non-finite values, or has fewer than (order - 1) * delay + 1
+        samples.
 
     """
     x = _validate_series(time_series)
-    _check_integer("order", order, 1)
+    _check_integer("order", order, 1, _MAX_PERMUTATION_ORDER)
     _check_integer("delay", delay, 1)
     _check_embedding_length(x, order, delay)
     # associate a unique integer in [0, order! - 1] to each ordinal pattern
@@ -663,8 +665,8 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     TypeError
         If m, delay, or scale is not an integer (booleans excluded).
     ValueError
-        If m, delay, or scale is below 1, or time_series is not 1D or contains
-        non-finite values.
+        If m, delay, or scale is below 1, m is above 20, or time_series is not
+        1D or contains non-finite values.
 
     Warns
     -----
@@ -674,7 +676,7 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
 
     """
     time_series = _validate_series(time_series)
-    _check_integer("m", m, 1)
+    _check_integer("m", m, 1, _MAX_PERMUTATION_ORDER)
     _check_integer("delay", delay, 1)
     _check_integer("scale", scale, 1)
 
@@ -749,12 +751,13 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     TypeError
         If order or delay is not an integer (booleans excluded).
     ValueError
-        If order or delay is below 1, time_series is not 1D or contains
-        non-finite values, or has fewer than (order - 1) * delay + 1 samples.
+        If order or delay is below 1, order is above 20, time_series is not 1D
+        or contains non-finite values, or has fewer than (order - 1) * delay + 1
+        samples.
 
     """
     x = _validate_series(time_series)
-    _check_integer("order", order, 1)
+    _check_integer("order", order, 1, _MAX_PERMUTATION_ORDER)
     _check_integer("delay", delay, 1)
     _check_embedding_length(x, order, delay)
 
@@ -1052,7 +1055,9 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
         Positive radius r in the same units as the time series, used in
         exp(-(d / r)**n), where d is the Chebyshev distance between centered
         templates. This is the form of Chen et al. (2007), without the ln(2)
-        scaling used in some later papers. Defaults to 0.2 * std(time_series).
+        scaling used in some later papers. Defaults to 0.2 * std(time_series),
+        unlike sample_entropy and the multiscale functions, which default to
+        0.1 * std(time_series).
     n : int or float, optional
         Weight of the fuzzy boundary (power of the exponential function).
         Defaults to 2.
@@ -1121,7 +1126,7 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
         )
         return float(np.nan)
 
-    return float(-np.log(phi_m1 / phi_m))
+    return float(np.log(phi_m / phi_m1))
 
 
 def _validate_dispersion_params(  # noqa: PLR0913

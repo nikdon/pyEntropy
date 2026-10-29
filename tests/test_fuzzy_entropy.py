@@ -138,3 +138,10 @@ class TestFuzzyEntropy(unittest.TestCase):
         self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, sample_length=2.5)
         self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, sample_length=2.0)
         self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, sample_length=True)
+
+
+class TestFuzzySign(unittest.TestCase):
+    def test_constant_series_explicit_tolerance_is_positive_zero(self):
+        """Return +0.0 (not -0.0) for a constant series with an explicit tolerance."""
+        value = ent.fuzzy_entropy(np.ones(50), tolerance=0.2)
+        self.assertEqual(np.copysign(1.0, value), 1.0)

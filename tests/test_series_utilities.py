@@ -56,3 +56,23 @@ class TestUtilityValidation(unittest.TestCase):
         """Reject zero or non-integer scale."""
         self.assertRaises(ValueError, ent.util_granulate_time_series, np.arange(5.0), 0)
         self.assertRaises(TypeError, ent.util_granulate_time_series, np.arange(5.0), 2.0)
+
+
+class TestPatternSpace(unittest.TestCase):
+    def test_accepts_shortest_valid_series(self):
+        """Accept a series with exactly lag * (dim - 1) + 1 samples."""
+        np.testing.assert_array_equal(ent.util_pattern_space([1, 2, 3], 2, 2), [[1.0, 3.0]])
+        self.assertRaises(ValueError, ent.util_pattern_space, [1, 2], 2, 2)
+
+    def test_matches_time_delay_embedding_as_writable_float_copy(self):
+        """Return the same rows as time_delay_embedding, as a writable float array."""
+        x = np.arange(12)
+        res = ent.util_pattern_space(x, 3, 3)
+        np.testing.assert_array_equal(res, ent.time_delay_embedding(x, 3, 3))
+        self.assertEqual(res.dtype, np.float64)
+        self.assertTrue(res.flags.writeable)
+
+    def test_rejects_bad_parameters(self):
+        """Reject zero or non-integer lag and dim."""
+        self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 1, 0)
+        self.assertRaises(TypeError, ent.util_pattern_space, TIME_SERIES, 1.0, 2)

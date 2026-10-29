@@ -195,3 +195,13 @@ class TestConstantSeries(unittest.TestCase):
     def test_float_constant_series(self):
         """Treat a constant series of non-representable floats the same way."""
         self._assert_positive_zeros(ent.rcmse(np.full(60, 0.1), 2, 2))
+
+
+class TestMultiscaleDefaults(unittest.TestCase):
+    def test_default_maxscale_is_twenty(self):
+        """Compute scales 1 to 20 by default, and treat None as 20."""
+        x = RANDOM_TIME_SERIES[:600]
+        default = ent.multiscale_entropy(x, 2)
+        self.assertEqual(default.shape, (20,))
+        np.testing.assert_array_equal(default, ent.multiscale_entropy(x, 2, maxscale=None))
+        np.testing.assert_array_equal(default[:5], ent.multiscale_entropy(x, 2, maxscale=5))

@@ -106,3 +106,14 @@ class TestMultiscalePermutationShortScales(unittest.TestCase):
         for k in range(1, 5):
             self.assertEqual(res[k - 1], ent.permutation_entropy(ent.util_granulate_time_series(series, k), 3, 2))
         self.assertTrue(np.all(np.isnan(res[4:])))
+
+
+class TestPermutationOrderLimit(unittest.TestCase):
+    def test_order_above_twenty_is_rejected(self):
+        """Reject orders whose pattern ids would overflow int64 (21! > 2**63)."""
+        x = RANDOM_TIME_SERIES[:60]
+        self.assertTrue(np.isfinite(ent.permutation_entropy(x, order=20)))
+        self.assertTrue(np.isfinite(ent.weighted_permutation_entropy(x, order=20)))
+        self.assertRaises(ValueError, ent.permutation_entropy, x, order=21)
+        self.assertRaises(ValueError, ent.weighted_permutation_entropy, x, order=21)
+        self.assertRaises(ValueError, ent.multiscale_permutation_entropy, x, 21, 1, 1)
