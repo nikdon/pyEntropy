@@ -41,3 +41,20 @@ class TestTemplateMatches(unittest.TestCase):
             n_prefix, n_full = _brute_match_counts(series, sample_length, tol)
             self.assertEqual(counts[sample_length - 1], n_prefix)
             self.assertEqual(counts[sample_length], n_full)
+
+
+class TestSampleEntropyValidation(unittest.TestCase):
+    def test_invalid_values(self):
+        """Reject bad lengths, tolerances and non-finite data with ValueError."""
+        ts = TS_SAMPLE_ENTROPY
+        self.assertRaises(ValueError, ent.sample_entropy, ts, 0)
+        self.assertRaises(ValueError, ent.sample_entropy, ts, 2, -1.0)
+        self.assertRaises(ValueError, ent.sample_entropy, ts, 2, 0.0)
+        self.assertRaises(ValueError, ent.sample_entropy, ts, 2, np.nan)
+        self.assertRaises(ValueError, ent.sample_entropy, [*ts, np.nan], 2)
+        self.assertRaises(ValueError, ent.sample_entropy, np.ones((5, 5)), 2)
+
+    def test_invalid_types(self):
+        """Reject a non-integer sample_length with TypeError."""
+        self.assertRaises(TypeError, ent.sample_entropy, TS_SAMPLE_ENTROPY, 2.0)
+        self.assertRaises(TypeError, ent.sample_entropy, TS_SAMPLE_ENTROPY, True)

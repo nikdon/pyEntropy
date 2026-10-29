@@ -5,7 +5,7 @@ from collections import Counter
 import numpy as np
 
 from pyentrp import entropy as ent
-from tests._entropy_test_data import TIME_SERIES, TS_SAMPLE_ENTROPY
+from tests._entropy_test_data import RANDOM_TIME_SERIES, TIME_SERIES, TS_SAMPLE_ENTROPY
 
 
 def _entropy_bits(counts):
@@ -226,6 +226,14 @@ class TestDispersionEntropy(unittest.TestCase):
         self.assertRaises(TypeError, ent.dispersion_entropy, TIME_SERIES, mapping=1)
         self.assertRaises(TypeError, ent.dispersion_entropy, TIME_SERIES, normalize="yes")
         self.assertRaises(TypeError, ent.dispersion_entropy, TIME_SERIES, normalize=1)
+
+    def test_dispersion_entropy_mapping_is_case_insensitive(self):
+        """Accept mapping names in any letter case."""
+        x = RANDOM_TIME_SERIES[:200]
+        for mapping in ("ncdf", "linear"):
+            expected = ent.dispersion_entropy(x, mapping=mapping)
+            self.assertEqual(ent.dispersion_entropy(x, mapping=mapping.upper()), expected)
+            self.assertEqual(ent.dispersion_entropy(x, mapping=mapping.capitalize()), expected)
 
 
 if __name__ == "__main__":

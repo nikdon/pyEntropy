@@ -42,3 +42,17 @@ class TestValidationHelpers(unittest.TestCase):
         self.assertRaises(TypeError, ent._check_integer, "x", "2", 1)
         self.assertRaises(ValueError, ent._check_integer, "x", 0, 1)
         self.assertRaises(ValueError, ent._check_integer, "x", np.int64(-4), 1)
+
+
+class TestUtilityValidation(unittest.TestCase):
+    def test_time_delay_embedding_rejects_bad_parameters(self):
+        """Reject zero or non-integer dimension and delay."""
+        x = np.arange(5.0)
+        self.assertRaises(ValueError, ent.time_delay_embedding, x, 3, 0)
+        self.assertRaises(ValueError, ent.time_delay_embedding, x, 0, 1)
+        self.assertRaises(TypeError, ent.time_delay_embedding, x, 3, 1.0)
+
+    def test_granulate_rejects_bad_scale(self):
+        """Reject zero or non-integer scale."""
+        self.assertRaises(ValueError, ent.util_granulate_time_series, np.arange(5.0), 0)
+        self.assertRaises(TypeError, ent.util_granulate_time_series, np.arange(5.0), 2.0)

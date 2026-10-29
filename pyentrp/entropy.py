@@ -47,6 +47,35 @@ def _validate_series(time_series):
     return time_series
 
 
+def _check_tolerance(tolerance):
+    """Validate an explicitly supplied tolerance.
+
+    Raises
+    ------
+    ValueError
+        If tolerance is not greater than 0 (this includes NaN).
+
+    """
+    if not tolerance > 0:
+        raise ValueError("tolerance must be greater than 0.")
+
+
+def _check_embedding_length(time_series, order, delay):
+    """Check that the series holds at least one window of `order` samples spaced `delay` apart.
+
+    Raises
+    ------
+    ValueError
+        If the series has fewer than (order - 1) * delay + 1 samples.
+
+    """
+    min_length = (order - 1) * delay + 1
+    if len(time_series) < min_length:
+        raise ValueError(
+            f"Time series length ({len(time_series)}) must be at least (order - 1) * delay + 1 ({min_length})."
+        )
+
+
 def time_delay_embedding(time_series, embedding_dimension, delay):
     """Calculate time-delayed embedding.
 
@@ -66,7 +95,16 @@ def time_delay_embedding(time_series, embedding_dimension, delay):
         This is a read-only view on the input data (no copy is made), so copy it
         before modifying it in place.
 
+    Raises
+    ------
+    TypeError
+        If embedding_dimension or delay is not an integer (booleans excluded).
+    ValueError
+        If embedding_dimension or delay is below 1, or the series is too short.
+
     """
+    _check_integer("embedding_dimension", embedding_dimension, 1)
+    _check_integer("delay", delay, 1)
     window = (embedding_dimension - 1) * delay + 1
     view = sliding_window_view(time_series, window_shape=window)
     return view[:, ::delay] if delay > 1 else view
@@ -124,7 +162,15 @@ def util_granulate_time_series(time_series, scale):
     cts : np.ndarray
         Array of coarse-grained time series with a given scale factor
 
+    Raises
+    ------
+    TypeError
+        If scale is not an integer (booleans excluded).
+    ValueError
+        If scale is below 1.
+
     """
+    _check_integer("scale", scale, 1)
     if not isinstance(time_series, np.ndarray):
         time_series = np.array(time_series)
 
@@ -290,12 +336,22 @@ def sample_entropy(time_series, sample_length, tolerance=None):
     .. [2] http://physionet.incor.usp.br/physiotools/sampen/
     .. [3] Madalena Costa, Ary Goldberger, CK Peng. Multiscale entropy analysis of biological signals
 
+    Raises
+    ------
+    TypeError
+        If sample_length is not an integer (booleans excluded).
+    ValueError
+        If sample_length < 1, time_series is not 1D or contains non-finite
+        values, or an explicitly supplied tolerance is not greater than 0.
+
     """
-    if not isinstance(time_series, np.ndarray):
-        time_series = np.array(time_series)
+    time_series = _validate_series(time_series)
+    _check_integer("sample_length", sample_length, 1)
 
     if tolerance is None:
         tolerance = 0.1 * np.std(time_series)
+    else:
+        _check_tolerance(tolerance)
 
     N_temp = _count_template_matches(time_series, sample_length, tolerance)
     sampen = -np.log(N_temp[1:] / N_temp[:-1])
@@ -326,12 +382,28 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
     .. [1] http://en.pudn.com/downloads149/sourcecode/math/detail646216_en.html
             Can be viewed at https://web.archive.org/web/20170207221539/http://en.pudn.com/downloads149/sourcecode/math/detail646216_en.html
 
+    Raises
+    ------
+    TypeError
+        If sample_length or maxscale is not an integer (booleans excluded).
+    ValueError
+        If sample_length or maxscale is below 1, time_series is not 1D or
+        contains non-finite values, or an explicitly supplied tolerance is
+        not greater than 0.
+
     """
+    time_series = _validate_series(time_series)
+    _check_integer("sample_length", sample_length, 1)
+
     if tolerance is None:
         tolerance = 0.1 * np.std(time_series)
+    else:
+        _check_tolerance(tolerance)
 
     if maxscale is None:
         maxscale = len(time_series)
+    else:
+        _check_integer("maxscale", maxscale, 1)
 
     mse = np.zeros(maxscale)
     for i in range(maxscale):
@@ -510,8 +582,19 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
         >>> round(permutation_entropy(x, order=3, normalize=True), 3)
         0.589
 
+    Raises
+    ------
+    TypeError
+        If order or delay is not an integer (booleans excluded).
+    ValueError
+        If order or delay is below 1, time_series is not 1D or contains
+        non-finite values, or has fewer than (order - 1) * delay + 1 samples.
+
     """
-    x = np.asarray(time_series)
+    x = _validate_series(time_series)
+    _check_integer("order", order, 1)
+    _check_integer("delay", delay, 1)
+    _check_embedding_length(x, order, delay)
     # associate a unique integer in [0, order! - 1] to each ordinal pattern
     lehmer = _motif_lehmer_ids(x, order=order, delay=delay)
     n_motifs = math.factorial(order)
@@ -523,7 +606,10 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     c = c[c > 0]
     p = c / c.sum()
     pe = float(-np.dot(p, np.log2(p)))
-    if normalize:
+    if pe <= 0.0:
+        return 0.0  # a single pattern; avoid returning -0.0
+    # order 1 has a single pattern, so the entropy is 0 and there is nothing to normalize by
+    if normalize and n_motifs > 1:
         pe /= math.log2(n_motifs)
     return pe
 
@@ -553,7 +639,21 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
             Complexity Analysis of Alzheimer`s Disease EEG. www.mdpi.com/1099-4300/14/7/1186
     .. [2] http://www.mathworks.com/matlabcentral/fileexchange/37288-multiscale-permutation-entropy-mpe/content/MPerm.m
 
+    Raises
+    ------
+    TypeError
+        If m, delay, or scale is not an integer (booleans excluded).
+    ValueError
+        If m, delay, or scale is below 1, time_series is not 1D or contains
+        non-finite values, or a coarse-grained series has fewer than
+        (m - 1) * delay + 1 samples.
+
     """
+    time_series = _validate_series(time_series)
+    _check_integer("m", m, 1)
+    _check_integer("delay", delay, 1)
+    _check_integer("scale", scale, 1)
+
     mspe = np.empty(scale)
     for i in range(scale):
         coarse_time_series = util_granulate_time_series(time_series, i + 1)
@@ -610,8 +710,19 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
         >>> round(weighted_permutation_entropy(x, order=3, normalize=True), 3)
         0.547
 
+    Raises
+    ------
+    TypeError
+        If order or delay is not an integer (booleans excluded).
+    ValueError
+        If order or delay is below 1, time_series is not 1D or contains
+        non-finite values, or has fewer than (order - 1) * delay + 1 samples.
+
     """
-    x = np.asarray(time_series, dtype=np.float64)
+    x = _validate_series(time_series)
+    _check_integer("order", order, 1)
+    _check_integer("delay", delay, 1)
+    _check_embedding_length(x, order, delay)
 
     lehmer = _motif_lehmer_ids(x, order=order, delay=delay)
     weights = _window_weights(x, order=order, delay=delay)
@@ -630,6 +741,8 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
     pw /= pw.sum()
 
     wpe = float(-np.dot(pw, np.log2(pw)))
+    if wpe <= 0.0:
+        return 0.0  # a single weighted pattern; avoid returning -0.0
 
     if normalize:
         wpe /= math.log2(n_motifs)
@@ -661,9 +774,24 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
     .. [1] Wu, Shuen-De, et al. "Time series analysis using
         composite multiscale entropy." Entropy 15.3 (2013): 1069-1084.
 
+    Raises
+    ------
+    TypeError
+        If sample_length or scale is not an integer (booleans excluded).
+    ValueError
+        If sample_length or scale is below 1, time_series is not 1D or
+        contains non-finite values, or an explicitly supplied tolerance is
+        not greater than 0.
+
     """
+    time_series = _validate_series(time_series)
+    _check_integer("sample_length", sample_length, 1)
+    _check_integer("scale", scale, 1)
+
     if tolerance is None:
         tolerance = 0.1 * np.std(time_series)
+    else:
+        _check_tolerance(tolerance)
 
     cmse = np.zeros(scale)
 
@@ -734,8 +862,8 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
 
     if tolerance is None:
         tolerance = 0.1 * np.std(time_series)
-    elif not tolerance > 0:
-        raise ValueError("tolerance must be greater than 0.")
+    else:
+        _check_tolerance(tolerance)
 
     rcmse_values = np.zeros(scale)
 
@@ -937,8 +1065,8 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
         if std == 0:
             return 0.0
         tolerance = 0.2 * std
-    elif not tolerance > 0:
-        raise ValueError("tolerance must be greater than 0.")
+    else:
+        _check_tolerance(tolerance)
 
     # both lengths use the same number of vectors (the first n_vectors windows)
     n_vectors = len(time_series) - sample_length
@@ -1001,13 +1129,9 @@ def _validate_dispersion_params(  # noqa: PLR0913
     if not isinstance(normalize, (bool, np.bool_)):
         raise TypeError(f"normalize must be a boolean, got {type(normalize).__name__}.")
 
-    min_length = (order - 1) * delay + 1
-    if len(time_series) < min_length:
-        raise ValueError(
-            f"Time series length ({len(time_series)}) must be at least (order - 1) * delay + 1 ({min_length})."
-        )
+    _check_embedding_length(time_series, order, delay)
 
-    return time_series, mapping
+    return time_series, mapping.lower()
 
 
 def _map_to_classes(time_series, classes, mapping):

@@ -1,3 +1,4 @@
+import math
 import unittest
 
 import numpy as np
@@ -55,3 +56,40 @@ class TestEntropy(unittest.TestCase):
             np.round(ent.multiscale_permutation_entropy(TS_SAMPLE_ENTROPY, 3, 5, 2), 4),
             np.array([2.4699, 2.5649]),
         )
+
+
+class TestPermutationValidation(unittest.TestCase):
+    def test_invalid_values(self):
+        """Reject bad orders, delays, short series and non-finite data with ValueError."""
+        for func in (ent.permutation_entropy, ent.weighted_permutation_entropy):
+            self.assertRaises(ValueError, func, PERM_ENTROPY_BANDT, order=0)
+            self.assertRaises(ValueError, func, PERM_ENTROPY_BANDT, delay=0)
+            self.assertRaises(ValueError, func, PERM_ENTROPY_BANDT, delay=-1)
+            self.assertRaises(ValueError, func, [1.0, 2.0], order=3)
+            self.assertRaises(ValueError, func, [1.0, np.nan, 2.0, 3.0, 1.0], order=3)
+            self.assertRaises(ValueError, func, np.ones((5, 5)), order=3)
+        self.assertRaises(ValueError, ent.multiscale_permutation_entropy, TS_SAMPLE_ENTROPY, 3, 1, 0)
+        self.assertRaises(ValueError, ent.multiscale_permutation_entropy, [1.0, np.inf, 2.0, 3.0], 2, 1, 1)
+
+    def test_invalid_types(self):
+        """Reject non-integer order, delay and scale with TypeError."""
+        for func in (ent.permutation_entropy, ent.weighted_permutation_entropy):
+            self.assertRaises(TypeError, func, PERM_ENTROPY_BANDT, order=3.0)
+            self.assertRaises(TypeError, func, PERM_ENTROPY_BANDT, delay=True)
+        self.assertRaises(TypeError, ent.multiscale_permutation_entropy, TS_SAMPLE_ENTROPY, 3, 1, 2.0)
+
+    def test_shortest_valid_series(self):
+        """Give +0.0 (not -0.0) when only one pattern is observed."""
+        for value in (
+            ent.permutation_entropy([3.0, 1.0, 2.0], order=3),
+            ent.weighted_permutation_entropy([1.0, 2.0, 3.0, 4.0, 5.0], order=3),
+        ):
+            self.assertEqual(value, 0.0)
+            self.assertEqual(math.copysign(1.0, value), 1.0)
+
+    def test_order_one_normalized_is_zero(self):
+        """Return 0 for order 1 with normalize=True instead of dividing by log2(1!) = 0."""
+        for func in (ent.permutation_entropy, ent.weighted_permutation_entropy):
+            value = func(PERM_ENTROPY_BANDT, order=1, normalize=True)
+            self.assertEqual(value, 0.0)
+            self.assertEqual(math.copysign(1.0, value), 1.0)

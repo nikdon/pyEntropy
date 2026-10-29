@@ -146,3 +146,20 @@ class TestRCMSE(unittest.TestCase):
         self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, sample_length=2, scale=2.0)
         self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, sample_length=2.5, scale=1)
         self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, sample_length=False, scale=1)
+
+
+class TestMultiscaleValidation(unittest.TestCase):
+    def test_multiscale_entropy_invalid_input(self):
+        """Reject bad parameters and non-finite data in multiscale_entropy."""
+        self.assertRaises(ValueError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, 2, maxscale=0)
+        self.assertRaises(ValueError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, 2, tolerance=-1.0)
+        self.assertRaises(ValueError, ent.multiscale_entropy, [*TS_SAMPLE_ENTROPY, np.nan], 2, maxscale=2)
+        self.assertRaises(TypeError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, 2, maxscale=2.0)
+        self.assertRaises(TypeError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, 2.0, maxscale=2)
+
+    def test_composite_multiscale_entropy_invalid_input(self):
+        """Reject bad parameters and non-finite data in composite_multiscale_entropy."""
+        self.assertRaises(ValueError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, 2, 0)
+        self.assertRaises(ValueError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, 2, 2, -1.0)
+        self.assertRaises(ValueError, ent.composite_multiscale_entropy, [*TS_SAMPLE_ENTROPY, np.inf], 2, 2)
+        self.assertRaises(TypeError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, 2, 2.0)
