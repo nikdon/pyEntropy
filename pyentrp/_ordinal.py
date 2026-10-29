@@ -5,8 +5,8 @@ import math
 import numpy as np
 
 from ._core import count_patterns, entropy_bits, pool_patterns, window_length
-from ._multiscale import Measure, coarse_grain, register
-from ._validation import check_embedding_length, check_integer, renamed, validate_series, warn
+from ._multiscale import Measure, multiscale, register
+from ._validation import check_embedding_length, check_integer, renamed, validate_series
 
 # largest permutation order: pattern ids go up to order! - 1, and 20! - 1 is the last that fits in int64.
 MAX_PERMUTATION_ORDER = 20
@@ -272,26 +272,7 @@ def multiscale_permutation_entropy(time_series, order, delay, scale):
     .. [2] http://www.mathworks.com/matlabcentral/fileexchange/37288-multiscale-permutation-entropy-mpe/content/MPerm.m
 
     """
-    time_series = validate_series(time_series, keep_integer=True)
-    check_integer("order", order, 1, MAX_PERMUTATION_ORDER)
-    check_integer("delay", delay, 1)
-    check_integer("scale", scale, 1)
-
-    min_length = (order - 1) * delay + 1
-    mspe = np.full(scale, np.nan)
-    for i in range(scale):
-        # scale 1 is the series itself; averaging would turn integers into floats and could merge them
-        coarse_time_series = coarse_grain(time_series, i + 1)
-        if len(coarse_time_series) < min_length:
-            # coarse series only get shorter with scale, so every remaining scale is too short
-            warn(
-                f"Coarse-grained series is shorter than (order - 1) * delay + 1 ({min_length}) "
-                f"from scale {i + 1} on. Returning NaN for those scales.",
-                RuntimeWarning,
-            )
-            break
-        mspe[i] = PERMUTATION.value(ordinal_patterns(coarse_time_series, order, delay), order=order, normalize=False)
-    return mspe
+    return multiscale(time_series, permutation_entropy, scale, order=order, delay=delay)
 
 
 def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False):

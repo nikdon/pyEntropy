@@ -2,8 +2,15 @@
 
 import numpy as np
 
-from ._multiscale import Measure, coarse_grain, register, sum_stats
-from ._validation import check_integer, renamed, resolve_tolerance, template_length, validate_series, warn
+from ._multiscale import (
+    Measure,
+    composite_multiscale,
+    multiscale,
+    refined_composite_multiscale,
+    register,
+    sum_stats,
+)
+from ._validation import renamed, resolve_tolerance, template_length, validate_series
 
 
 def count_template_matches(time_series, sample_length, tolerance, chunk_size=32):
@@ -207,19 +214,9 @@ def multiscale_entropy(time_series, sample_length=None, tolerance=None, scale=20
            complex physiologic time series. Physical Review Letters, 89(6), 068102.
 
     """
-    length = template_length(sample_length, m)
-    time_series = validate_series(time_series)
-    tolerance = resolve_tolerance(time_series, tolerance, 0.1)
     if scale is None:
         scale = 20
-    check_integer("scale", scale, 1)
-
-    return np.array(
-        [
-            sample_value(count_template_matches(coarse_grain(time_series, k), length, tolerance))
-            for k in range(1, scale + 1)
-        ]
-    )
+    return multiscale(time_series, sample_entropy, scale, sample_length=sample_length, tolerance=tolerance, m=m)
 
 
 def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
@@ -262,17 +259,9 @@ def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tole
         composite multiscale entropy." Entropy 15.3 (2013): 1069-1084.
 
     """
-    length = template_length(sample_length, m)
-    time_series = validate_series(time_series)
-    check_integer("scale", scale, 1)
-    tolerance = resolve_tolerance(time_series, tolerance, 0.1)
-
-    cmse = np.zeros(scale)
-    for i in range(scale):
-        k = i + 1
-        for j in range(k):
-            cmse[i] += sample_value(count_template_matches(coarse_grain(time_series[j:], k), length, tolerance)) / k
-    return cmse
+    return composite_multiscale(
+        time_series, sample_entropy, scale, sample_length=sample_length, tolerance=tolerance, m=m
+    )
 
 
 def rcmse(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
@@ -302,9 +291,9 @@ def rcmse(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
     -------
     rcmse : np.ndarray
         Array of length scale in nats; index i corresponds to scale i + 1.
-        An entry is NaN if either pooled match count is zero, including when
-        the coarse-grained series are too short to provide matching pairs.
-        (Unlike sample_entropy, a zero numerator gives NaN rather than inf.)
+        As in sample_entropy, a zero pooled count for length m + 1 gives inf
+        (with a positive count for length m) and two zero counts give NaN. An
+        entry is NaN when every coarse-grained series is shorter than m + 2.
 
     Raises
     ------
@@ -319,7 +308,8 @@ def rcmse(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
     Warns
     -----
     RuntimeWarning
-        When either pooled match count is zero at a scale; that entry is NaN.
+        For zero pooled match counts (under NumPy's default error settings), and
+        when the coarse-grained series are too short from some scale on.
 
     References
     ----------
@@ -327,35 +317,9 @@ def rcmse(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
            for time series complexity analysis." IEEE Signal Processing Letters (2014).
 
     """
-    length = template_length(sample_length, m)
-    time_series = validate_series(time_series)
-    check_integer("scale", scale, 1)
-
-    if len(time_series) < length + 1:
-        raise ValueError(f"Time series length ({len(time_series)}) must be at least m + 2 ({length + 1}).")
-
-    tolerance = resolve_tolerance(time_series, tolerance, 0.1)
-
-    rcmse_values = np.zeros(scale)
-
-    for i in range(scale):
-        total_matches = np.zeros(length + 1)
-        for j in range(i + 1):
-            total_matches += count_template_matches(coarse_grain(time_series[j:], i + 1), length, tolerance)
-
-        n_m_plus_1 = total_matches[length]
-        n_m = total_matches[length - 1]
-
-        if n_m_plus_1 == 0 or n_m == 0:
-            warn(
-                f"No template matches found at scale {i + 1}. Returning NaN.",
-                RuntimeWarning,
-            )
-            rcmse_values[i] = np.nan
-        else:
-            rcmse_values[i] = np.log(n_m / n_m_plus_1)
-
-    return rcmse_values
+    return refined_composite_multiscale(
+        time_series, sample_entropy, scale, sample_length=sample_length, tolerance=tolerance, m=m
+    )
 
 
 # Descriptive alias; `rcmse` remains the primary name.

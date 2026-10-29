@@ -8,8 +8,8 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17727789.svg)](https://doi.org/10.5281/zenodo.17727789)
 
 **pyEntropy** (PyPI and import name: `pyentrp`) computes **sample entropy**, **permutation entropy**,
-**multiscale entropy** (MSE, CMSE, RCMSE), **fuzzy entropy**, **dispersion entropy** and **Shannon entropy** of
-one-dimensional time series. Typical uses are EEG/ECG and heart-rate variability, vibration and condition
+**fuzzy entropy**, **dispersion entropy** and **Shannon entropy** of one-dimensional time series. Every measure
+except Shannon entropy also has multiscale, composite multiscale and refined composite multiscale versions. Typical uses are EEG/ECG and heart-rate variability, vibration and condition
 monitoring, and finance.
 
 - **One dependency: NumPy.**
@@ -29,7 +29,7 @@ Python 3.10+ and NumPy 1.26+.
 
 ```python
 import numpy as np
-from pyentrp import entropy as ent
+import pyentrp as pe
 
 rng = np.random.default_rng(42)
 t = np.arange(1000)
@@ -38,8 +38,8 @@ sine = np.sin(2 * np.pi * t / 50)
 
 for name, x in [("white noise", noise), ("sine wave", sine)]:
     r = 0.2 * np.std(x)  # tolerance, in signal units
-    sampen = ent.sample_entropy(x, m=2, tolerance=r)[-1]
-    permen = ent.permutation_entropy(x, order=3, normalize=True)
+    sampen = pe.sample_entropy(x, m=2, tolerance=r)[-1]
+    permen = pe.permutation_entropy(x, order=3, normalize=True)
     print(f"{name:12s} SampEn={sampen:.3f}  PermEn={permen:.3f}")
 ```
 
@@ -51,7 +51,7 @@ sine wave    SampEn=0.248  PermEn=0.491
 Lower values mean a more regular signal. Multiscale entropy returns one value per scale:
 
 ```python
-mse = ent.multiscale_entropy(noise, m=2, tolerance=0.2 * np.std(noise), scale=5)
+mse = pe.multiscale_entropy(noise, m=2, tolerance=0.2 * np.std(noise), scale=5)
 for scale, value in enumerate(mse, start=1):
     print(f"scale {scale}: {value:.3f}")
 ```
@@ -63,6 +63,31 @@ scale 3: 1.602
 scale 4: 1.655
 scale 5: 1.502
 ```
+
+## Multiscale analysis
+
+Three functions take any measure and compute it at scales 1 to `scale`. The measure's own parameters follow as
+keywords:
+
+```python
+pe.multiscale(noise, pe.sample_entropy, scale=5, m=2)  # the same as multiscale_entropy
+pe.composite_multiscale(noise, pe.permutation_entropy, scale=5, order=3, normalize=True)
+pe.refined_composite_multiscale(noise, pe.dispersion_entropy, scale=5, classes=6, order=2, normalize=True)
+```
+
+| Function | At scale k | Reference |
+|---|---|---|
+| `multiscale` | the measure of the series averaged over blocks of k samples | [Costa et al. (2002)](https://doi.org/10.1103/PhysRevLett.89.068102) |
+| `composite_multiscale` | the mean of the measure over the k coarse-grainings that start at samples 1..k | [Wu et al. (2013)](https://doi.org/10.3390/e15031069) |
+| `refined_composite_multiscale` | the measure of the k coarse-grainings pooled together: summed match counts or similarities, averaged pattern probabilities | [Wu et al. (2014)](https://doi.org/10.1016/j.physleta.2014.03.034), [Humeau-Heurtier et al. (2015)](https://doi.org/10.1109/LSP.2015.2482603), [Azami et al. (2017)](https://doi.org/10.1109/TBME.2017.2679136) |
+
+- The measure can be `sample_entropy`, `fuzzy_entropy`, `permutation_entropy`, `weighted_permutation_entropy` or
+  `dispersion_entropy`. `multiscale` and `composite_multiscale` also accept any function `f(series, **params) -> float`.
+- Parameters are checked once. Settings that depend on the data come from the original series and stay fixed across
+  scales: the default tolerance, and the mean and std (or range) that dispersion entropy maps classes with.
+- A scale whose coarse-grained series is too short for the measure gives NaN, with one `RuntimeWarning`.
+- `multiscale_entropy`, `composite_multiscale_entropy`, `rcmse` and `multiscale_permutation_entropy` remain as
+  shortcuts for these functions with sample and permutation entropy.
 
 ## Supported measures
 
@@ -88,7 +113,8 @@ scale 5: 1.502
 - `tolerance` is absolute, in the units of your signal. Default: `0.1 * std(x)` (population std) for sample entropy
   and its multiscale variants; `0.2 * std(x)` for fuzzy entropy. For the common r = 0.2 SD pass
   `tolerance=0.2 * np.std(x)`.
-- `scale` is the largest scale of the multiscale functions; MSE, CMSE and RCMSE default to 20, as in Costa et al. (2002).
+- `scale` is the largest scale of the multiscale functions. All of them default to 20, as in Costa et al. (2002),
+  except `multiscale_permutation_entropy`, where it is required.
 - Fuzzy entropy uses the membership function `exp(-(d / r)**exponent)` [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025).
 - Ties in permutation entropy are ranked by position (stable ordering).
 
@@ -117,6 +143,8 @@ pyentrp 2.3.0, Python 3.13.18, NumPy 2.2.6, Apple M4 Pro. White noise, best of u
 | `weighted_permutation_entropy (order 3)` | 12 µs | 53 µs | 441 µs |
 | `multiscale_permutation_entropy (order 3, 5 scales)` | 52 µs | 172 µs | 1.3 ms |
 | `dispersion_entropy (6 classes, order 3)` | 24 µs | 83 µs | 1.3 ms |
+| `composite_multiscale permutation_entropy (order 3, scale 5)` | 153 µs | 469 µs | 3.5 ms |
+| `refined_composite_multiscale dispersion_entropy (6 classes, order 3, scale 5)` | 222 µs | 929 µs | 8.7 ms |
 | `sample_entropy (m=2)` | 656 µs | 43.3 ms | 2.9 s |
 | `multiscale_entropy (m=2, 5 scales)` | 1.2 ms | 67.8 ms | 4.3 s |
 | `composite_multiscale_entropy (m=2, scale 5)` | 2.1 ms | 111.2 ms | 6.7 s |

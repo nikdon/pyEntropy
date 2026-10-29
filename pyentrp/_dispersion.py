@@ -96,7 +96,8 @@ def map_to_classes(time_series, classes, mapping, reference=None):
         "linear" uses min-max scaling.
     reference : tuple, optional
         (loc, spread) from `mapping_reference`. Defaults to that of time_series itself; the
-        multiscale methods pass the one of the original series, as Azami et al. do.
+        multiscale methods pass the one of the original series. Azami et al. do this for "ncdf"
+        (mean and std); "linear" (minimum and range) follows the same rule.
 
     Returns
     -------

@@ -93,6 +93,16 @@ def _benchmark_dispersion_entropy(data: BenchmarkData):
     return ent.dispersion_entropy(data.series, classes=6, order=3)
 
 
+@bench("composite_multiscale permutation_entropy (order 3, scale 5)")
+def _benchmark_composite_multiscale_permutation(data: BenchmarkData):
+    return ent.composite_multiscale(data.series, ent.permutation_entropy, 5, order=3)
+
+
+@bench("refined_composite_multiscale dispersion_entropy (6 classes, order 3, scale 5)")
+def _benchmark_refined_composite_multiscale_dispersion(data: BenchmarkData):
+    return ent.refined_composite_multiscale(data.series, ent.dispersion_entropy, 5, classes=6, order=3)
+
+
 @bench("sample_entropy (m=2)")
 def _benchmark_sample_entropy(data: BenchmarkData):
     return ent.sample_entropy(data.series, m=2, tolerance=data.tolerance)
