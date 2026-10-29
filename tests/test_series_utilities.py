@@ -57,6 +57,12 @@ class TestUtilityValidation(unittest.TestCase):
         self.assertRaises(ValueError, ent.util_granulate_time_series, np.arange(5.0), 0)
         self.assertRaises(TypeError, ent.util_granulate_time_series, np.arange(5.0), 2.0)
 
+    def test_granulate_rejects_bad_series(self):
+        """Reject non-1D and non-finite series, like every other public function."""
+        self.assertRaises(ValueError, ent.util_granulate_time_series, np.ones((4, 4)), 2)
+        self.assertRaises(ValueError, ent.util_granulate_time_series, [1.0, np.nan, 2.0, 3.0], 2)
+        np.testing.assert_array_equal(ent.util_granulate_time_series([1, 3, 5, 7, 9], 2), [2.0, 6.0])
+
 
 class TestPatternSpace(unittest.TestCase):
     def test_accepts_shortest_valid_series(self):

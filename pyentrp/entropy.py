@@ -232,17 +232,18 @@ def util_granulate_time_series(time_series, scale):
     TypeError
         If scale is not an integer (booleans excluded).
     ValueError
-        If scale is below 1.
+        If scale is below 1, or time_series is not 1D or contains non-finite values.
 
     """
+    time_series = _validate_series(time_series)
     _check_integer("scale", scale, 1)
-    if not isinstance(time_series, np.ndarray):
-        time_series = np.array(time_series)
+    return _granulate(time_series, scale)
 
-    n = time_series.shape[0]
-    b = n // scale
-    cts = np.mean(time_series[: b * scale].reshape(b, scale), axis=1)
-    return cts
+
+def _granulate(x, scale):
+    """Average non-overlapping blocks of `scale` samples, dropping an incomplete last block."""
+    b = len(x) // scale
+    return np.mean(x[: b * scale].reshape(b, scale), axis=1)
 
 
 def shannon_entropy(time_series):
@@ -301,9 +302,6 @@ def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32
         windows are available.
 
     """
-    if sample_length < 1:
-        raise ValueError("sample_length must be a positive integer.")
-
     # Floating point input avoids wrap-around in the differences of unsigned integer series
     time_series = np.asarray(time_series, dtype=float)
 
@@ -409,9 +407,19 @@ def sample_entropy(time_series, sample_length, tolerance=None):
 
     tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
 
-    N_temp = _count_template_matches(time_series, sample_length, tolerance)
-    sampen = np.log(N_temp[:-1] / N_temp[1:])
-    return sampen
+    return _sampen(time_series, sample_length, tolerance)
+
+
+def _sampen(x, sample_length, tolerance):
+    """Return SE[k] = log(N[k] / N[k + 1]) for k = 0 .. sample_length - 1 (written so it never gives -0.0)."""
+    counts = _count_template_matches(x, sample_length, tolerance)
+    return np.log(counts[:-1] / counts[1:])
+
+
+def _sampen_last(x, sample_length, tolerance):
+    """Return only SE[sample_length - 1], the sample entropy for m = sample_length - 1."""
+    counts = _count_template_matches(x, sample_length, tolerance)
+    return np.log(counts[-2] / counts[-1])
 
 
 def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=20):
@@ -461,11 +469,9 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=20):
         maxscale = 20
     _check_integer("maxscale", maxscale, 1)
 
-    mse = np.zeros(maxscale)
-    for i in range(maxscale):
-        temp = util_granulate_time_series(time_series, i + 1)
-        mse[i] = sample_entropy(temp, sample_length, tolerance)[-1]
-    return mse
+    return np.array(
+        [_sampen_last(_granulate(time_series, k), sample_length, tolerance) for k in range(1, maxscale + 1)]
+    )
 
 
 def _motif_lehmer_ids(x, order, delay):
@@ -654,12 +660,17 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     _check_integer("delay", delay, 1)
     _check_embedding_length(x, order, delay)
     # associate a unique integer in [0, order! - 1] to each ordinal pattern
+    pe = _permutation_entropy(x, order, delay)
     n_motifs = math.factorial(order)
-    pe = _entropy_bits(_count_ids(_motif_lehmer_ids(x, order, delay), n_motifs))
     # order 1 has a single pattern, so pe is 0 and there is nothing to normalize by
     if normalize and pe > 0.0:
         pe /= math.log2(n_motifs)
     return pe
+
+
+def _permutation_entropy(x, order, delay):
+    """Return the unnormalized permutation entropy in bits of a validated series."""
+    return _entropy_bits(_count_ids(_motif_lehmer_ids(x, order, delay), math.factorial(order)))
 
 
 def multiscale_permutation_entropy(time_series, m, delay, scale):
@@ -713,7 +724,7 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     mspe = np.full(scale, np.nan)
     for i in range(scale):
         # scale 1 is the series itself; averaging would turn integers into floats and could merge them
-        coarse_time_series = time_series if i == 0 else util_granulate_time_series(time_series, i + 1)
+        coarse_time_series = time_series if i == 0 else _granulate(time_series, i + 1)
         if len(coarse_time_series) < min_length:
             # coarse series only get shorter with scale, so every remaining scale is too short
             warnings.warn(
@@ -723,7 +734,7 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
                 stacklevel=2,
             )
             break
-        mspe[i] = permutation_entropy(coarse_time_series, order=m, delay=delay)
+        mspe[i] = _permutation_entropy(coarse_time_series, m, delay)
     return mspe
 
 
@@ -845,12 +856,10 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
     tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
 
     cmse = np.zeros(scale)
-
     for i in range(scale):
-        for j in range(i + 1):
-            tmp = util_granulate_time_series(time_series[j:], i + 1)
-            se = sample_entropy(tmp, sample_length, tolerance)[-1]
-            cmse[i] += se / (i + 1)
+        k = i + 1
+        for j in range(k):
+            cmse[i] += _sampen_last(_granulate(time_series[j:], k), sample_length, tolerance) / k
     return cmse
 
 
@@ -919,8 +928,7 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
     for i in range(scale):
         total_matches = np.zeros(sample_length + 1)
         for j in range(i + 1):
-            tmp = util_granulate_time_series(time_series[j:], i + 1)
-            total_matches += _count_template_matches(tmp, sample_length, tolerance)
+            total_matches += _count_template_matches(_granulate(time_series[j:], i + 1), sample_length, tolerance)
 
         n_m_plus_1 = total_matches[sample_length]
         n_m = total_matches[sample_length - 1]
