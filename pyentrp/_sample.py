@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from ._core import coarse_grain
+from ._multiscale import Measure, coarse_grain, register, sum_stats
 from ._validation import check_integer, renamed, resolve_tolerance, template_length, validate_series, warn
 
 
@@ -79,6 +79,26 @@ def count_template_matches(time_series, sample_length, tolerance, chunk_size=32)
     return N_temp
 
 
+def prepare_sample(time_series, sample_length=None, tolerance=None, *, m=None):
+    """Validate the input of sample entropy and resolve the default tolerance on this series."""
+    length = template_length(sample_length, m)
+    x = validate_series(time_series)
+    return x, {"sample_length": length, "tolerance": resolve_tolerance(x, tolerance, 0.1)}
+
+
+def sample_value(counts, **_):
+    """Return SampEn(m, r) = log(N[m] / N[m + 1]) from the match counts."""
+    return np.log(counts[-2] / counts[-1])
+
+
+def sample_min_length(sample_length, **_):
+    """Return m + 2, the shortest series with a pair of (m + 1)-templates."""
+    return sample_length + 1
+
+
+SAMPLE = Measure(prepare_sample, count_template_matches, sample_value, sample_min_length, sum_stats)
+
+
 def sample_entropy(time_series, sample_length=None, tolerance=None, *, m=None):
     """Calculate the sample entropy SampEn(m, r) of a time series, using the Chebyshev distance.
 
@@ -134,22 +154,13 @@ def sample_entropy(time_series, sample_length=None, tolerance=None, *, m=None):
            https://physionet.org/content/sampen/1.0.0/
 
     """
-    length = template_length(sample_length, m)
-    time_series = validate_series(time_series)
-    tolerance = resolve_tolerance(time_series, tolerance, 0.1)
-    return sampen(time_series, length, tolerance)
-
-
-def sampen(x, length, tolerance):
-    """Return SE[k] = log(N[k] / N[k + 1]) for k = 0 .. length - 1 (written so it never gives -0.0)."""
-    counts = count_template_matches(x, length, tolerance)
+    x, p = prepare_sample(time_series, sample_length, tolerance, m=m)
+    counts = count_template_matches(x, **p)
+    # SE[k] for k = 0 .. m, written so it never gives -0.0
     return np.log(counts[:-1] / counts[1:])
 
 
-def sampen_last(x, length, tolerance):
-    """Return only SE[length - 1], the sample entropy for m = length - 1."""
-    counts = count_template_matches(x, length, tolerance)
-    return np.log(counts[-2] / counts[-1])
+register(sample_entropy, SAMPLE)
 
 
 @renamed(maxscale="scale")
@@ -203,7 +214,12 @@ def multiscale_entropy(time_series, sample_length=None, tolerance=None, scale=20
         scale = 20
     check_integer("scale", scale, 1)
 
-    return np.array([sampen_last(coarse_grain(time_series, k), length, tolerance) for k in range(1, scale + 1)])
+    return np.array(
+        [
+            sample_value(count_template_matches(coarse_grain(time_series, k), length, tolerance))
+            for k in range(1, scale + 1)
+        ]
+    )
 
 
 def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
@@ -255,7 +271,7 @@ def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tole
     for i in range(scale):
         k = i + 1
         for j in range(k):
-            cmse[i] += sampen_last(coarse_grain(time_series[j:], k), length, tolerance) / k
+            cmse[i] += sample_value(count_template_matches(coarse_grain(time_series[j:], k), length, tolerance)) / k
     return cmse
 
 

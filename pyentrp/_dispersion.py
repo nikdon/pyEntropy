@@ -5,7 +5,15 @@ from statistics import NormalDist
 
 import numpy as np
 
-from ._core import BINCOUNT_MAX_PATTERNS, count_ids, entropy_bits, time_delay_embedding
+from ._core import (
+    BINCOUNT_MAX_PATTERNS,
+    count_patterns,
+    entropy_bits,
+    pool_patterns,
+    time_delay_embedding,
+    window_length,
+)
+from ._multiscale import Measure, register
 from ._validation import check_embedding_length, check_integer, validate_series
 
 
@@ -59,7 +67,22 @@ def validate_dispersion_params(  # noqa: PLR0913
     return time_series, mapping
 
 
-def map_to_classes(time_series, classes, mapping):
+def mapping_reference(time_series, mapping):
+    """Return (loc, spread) used to scale values: mean and std for "ncdf", minimum and range for "linear".
+
+    The spread is 0.0 for a constant series. That is checked with the range, not the std: the std of a
+    constant float series can be a tiny nonzero number.
+
+    """
+    if np.ptp(time_series) == 0:
+        return float(time_series[0]), 0.0
+    if mapping == "ncdf":
+        return np.mean(time_series), np.std(time_series)
+    min_val = np.min(time_series)
+    return min_val, np.max(time_series) - min_val
+
+
+def map_to_classes(time_series, classes, mapping, reference=None):
     """Map a time series to integer classes.
 
     Parameters
@@ -71,12 +94,16 @@ def map_to_classes(time_series, classes, mapping):
     mapping : {"ncdf", "linear"}
         Mapping used to scale values to [0, 1]. "ncdf" uses the normal CDF;
         "linear" uses min-max scaling.
+    reference : tuple, optional
+        (loc, spread) from `mapping_reference`. Defaults to that of time_series itself; the
+        multiscale methods pass the one of the original series, as Azami et al. do.
 
     Returns
     -------
-    class_labels : np.ndarray or None
+    class_labels : np.ndarray
         An int64 array with the same shape and labels from 1 through
-        ``classes``. Return None for a constant series.
+        ``classes``. If the reference series is constant, every value goes to the
+        class of the mean under "ncdf", min(floor(classes / 2) + 1, classes).
 
     Notes
     -----
@@ -86,19 +113,75 @@ def map_to_classes(time_series, classes, mapping):
     k = 1, ..., classes - 1.
 
     """
-    # checked with the range, not the std: the std of a constant float series can be a tiny nonzero number
-    if np.ptp(time_series) == 0:
-        return None
+    loc, spread = mapping_reference(time_series, mapping) if reference is None else reference
+    if spread == 0:
+        return np.full(len(time_series), min(classes // 2 + 1, classes), dtype=np.int64)
 
     if mapping == "ncdf":
-        zscores = (time_series - np.mean(time_series)) / np.std(time_series)
+        zscores = (time_series - loc) / spread
         normal = NormalDist()
         boundaries = np.array([normal.inv_cdf(k / classes) for k in range(1, classes)])
         return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
 
-    min_val = np.min(time_series)
-    y = (time_series - min_val) / (np.max(time_series) - min_val)
+    y = (time_series - loc) / spread
     return np.minimum(np.floor(classes * y).astype(np.int64) + 1, classes)
+
+
+def prepare_dispersion(  # noqa: PLR0913
+    time_series, classes=3, order=3, delay=1, mapping="ncdf", normalize=False
+):
+    """Validate the input of dispersion entropy and fix the class mapping on this series."""
+    x, mapping = validate_dispersion_params(time_series, classes, order, delay, mapping, normalize)
+    reference = mapping_reference(x, mapping)
+    return x, {
+        "classes": classes,
+        "order": order,
+        "delay": delay,
+        "mapping": mapping,
+        "reference": reference,
+        "normalize": normalize,
+    }
+
+
+def pattern_space_fits(classes, order):
+    """Return True when classes ** order patterns are few enough to count with integer ids."""
+    # compare logs first: classes ** order can be an enormous integer
+    return order * math.log(classes) <= math.log(BINCOUNT_MAX_PATTERNS)
+
+
+def dispersion_patterns(x, classes, order, delay, mapping, reference, **_):  # noqa: PLR0913
+    """Return the dispersion pattern of every window: integer ids, or rows for huge pattern spaces.
+
+    The series is mapped to classes with the mean and std (or minimum and range) of the original series.
+
+    """
+    z = map_to_classes(x, classes, mapping, reference)
+    if not pattern_space_fits(classes, order):
+        # identical rows are counted later; no integer encoding, which could overflow int64
+        return time_delay_embedding(z, order, delay), None
+
+    # encode each pattern as a base-`classes` integer
+    n_win = len(z) - (order - 1) * delay
+    z = z - 1  # labels 0 .. classes - 1
+    ids = z[:n_win].copy()
+    for k in range(1, order):
+        s = k * delay
+        ids *= classes
+        ids += z[s : s + n_win]
+    return ids, None
+
+
+def dispersion_value(stats, classes, order, normalize, **_):
+    """Return the dispersion entropy in bits (or normalized) from the patterns."""
+    patterns, weights = stats
+    n_patterns = int(classes) ** int(order) if pattern_space_fits(classes, order) else None
+    de = entropy_bits(count_patterns(patterns, n_patterns, weights))
+    if normalize and de > 0.0:
+        de /= order * math.log2(classes)
+    return de
+
+
+DISPERSION = Measure(prepare_dispersion, dispersion_patterns, dispersion_value, window_length, pool_patterns)
 
 
 def dispersion_entropy(  # noqa: PLR0913
@@ -165,30 +248,7 @@ def dispersion_entropy(  # noqa: PLR0913
     0.667
 
     """
-    time_series, mapping = validate_dispersion_params(time_series, classes, order, delay, mapping, normalize)
+    return DISPERSION(time_series, classes=classes, order=order, delay=delay, mapping=mapping, normalize=normalize)
 
-    z = map_to_classes(time_series, classes, mapping)
-    if z is None:
-        return 0.0
 
-    # compare logs first: classes ** order can be an enormous integer
-    if order * math.log(classes) <= math.log(BINCOUNT_MAX_PATTERNS):
-        n_patterns = int(classes) ** int(order)
-        # encode each pattern as a base-`classes` integer
-        n_win = len(z) - (order - 1) * delay
-        z = z - 1  # labels 0 .. classes - 1
-        ids = z[:n_win].copy()
-        for k in range(1, order):
-            s = k * delay
-            ids *= classes
-            ids += z[s : s + n_win]
-        counts = count_ids(ids, n_patterns)
-    else:
-        # count identical rows; no integer encoding, which could overflow int64
-        patterns = time_delay_embedding(z, order, delay)
-        _, counts = np.unique(patterns, axis=0, return_counts=True)
-
-    de = entropy_bits(counts)
-    if normalize and de > 0.0:
-        de /= order * math.log2(classes)
-    return de
+register(dispersion_entropy, DISPERSION)

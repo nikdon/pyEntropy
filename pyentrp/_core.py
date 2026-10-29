@@ -1,4 +1,4 @@
-"""Embedding, coarse-graining, pattern counting and Shannon entropy."""
+"""Embedding, pattern counting and Shannon entropy."""
 
 from collections import Counter
 
@@ -92,38 +92,9 @@ def util_pattern_space(time_series, lag, dim):
     return time_delay_embedding(time_series, dim, lag).copy()
 
 
-def util_granulate_time_series(time_series, scale):
-    """Extract coarse-grained time series.
-
-    Parameters
-    ----------
-    time_series : np.ndarray
-        Time series
-    scale : int
-        Scale factor
-
-    Returns
-    -------
-    cts : np.ndarray
-        Array of coarse-grained time series with a given scale factor
-
-    Raises
-    ------
-    TypeError
-        If scale is not an integer (booleans excluded).
-    ValueError
-        If scale is below 1, or time_series is not 1D or contains non-finite values.
-
-    """
-    time_series = validate_series(time_series)
-    check_integer("scale", scale, 1)
-    return coarse_grain(time_series, scale)
-
-
-def coarse_grain(x, scale):
-    """Average non-overlapping blocks of `scale` samples, dropping an incomplete last block."""
-    b = len(x) // scale
-    return np.mean(x[: b * scale].reshape(b, scale), axis=1)
+def window_length(order, delay, **_):
+    """Return the number of samples spanned by one window."""
+    return (order - 1) * delay + 1
 
 
 def count_ids(ids, n_space, weights=None):
@@ -138,6 +109,40 @@ def count_ids(ids, n_space, weights=None):
         return np.bincount(ids, weights=weights, minlength=n_space)
     _, inv = np.unique(ids, return_inverse=True)
     return np.bincount(inv.ravel(), weights=weights)
+
+
+def count_patterns(patterns, n_space, weights=None):
+    """Count (or sum weights of) patterns: 1D integer ids in [0, n_space - 1], or the rows of a 2D array.
+
+    2D rows are used when the pattern space is too large for integer ids (n_space is then ignored).
+
+    """
+    if patterns.ndim == 1:
+        return count_ids(patterns, n_space, weights)
+    _, inv = np.unique(patterns, axis=0, return_inverse=True)
+    return np.bincount(inv.ravel(), weights=weights)
+
+
+def pool_patterns(stats):
+    """Pool the (patterns, weights) of several series so that each series has the same total weight.
+
+    Counting the pooled patterns then gives the average of the per-series pattern distributions, as in
+    refined composite multiscale permutation and dispersion entropy. A series with no weight is skipped.
+    A single series is returned unchanged.
+
+    """
+    if len(stats) == 1:
+        return stats[0]
+    patterns, weights = [], []
+    for p, w in stats:
+        mass = np.ones(len(p)) if w is None else w
+        total = mass.sum()
+        if total > 0:
+            patterns.append(p)
+            weights.append(mass / total)
+    if not patterns:
+        return stats[0]
+    return np.concatenate(patterns), np.concatenate(weights)
 
 
 def entropy_bits(weights):

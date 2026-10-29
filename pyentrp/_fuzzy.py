@@ -3,6 +3,7 @@
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
+from ._multiscale import Measure, register, sum_stats
 from ._validation import check_integer, renamed, resolve_tolerance, validate_series, warn
 
 
@@ -112,6 +113,47 @@ def compute_phi(cent_T, exponent, chunk_size=32):
     return total / n_pairs
 
 
+def prepare_fuzzy(time_series, m=2, tolerance=None, exponent=2):
+    """Validate the input of fuzzy entropy and resolve the default tolerance on this series."""
+    x = validate_series(time_series)
+    check_integer("m", m, 1)
+
+    if not exponent > 0:
+        raise ValueError("exponent must be greater than 0.")
+
+    if len(x) < m + 2:
+        raise ValueError(f"Time series length ({len(x)}) must be at least m + 2 ({m + 2}).")
+
+    return x, {"m": m, "tolerance": resolve_tolerance(x, tolerance, 0.2), "exponent": exponent}
+
+
+def fuzzy_similarities(x, m, tolerance, exponent):
+    """Return the mean fuzzy similarities (phi_m, phi_m+1) of templates of lengths m and m + 1."""
+    # both lengths use the same number of vectors (the first n_vectors windows)
+    n_vectors = len(x) - m
+    inv_tol = 1.0 / tolerance
+    phi_m = compute_phi(prepare_centered_T(x, m, n_vectors, inv_tol), exponent)
+    phi_m1 = compute_phi(prepare_centered_T(x, m + 1, n_vectors, inv_tol), exponent)
+    return np.array([phi_m, phi_m1])
+
+
+def fuzzy_value(phi, **_):
+    """Return log(phi_m / phi_m+1), or NaN with a warning if either similarity vanished."""
+    phi_m, phi_m1 = phi
+    if phi_m1 == 0 or phi_m == 0:
+        warn("Fuzzy similarity degrees vanished to zero. Returning NaN.", RuntimeWarning)
+        return float(np.nan)
+    return float(np.log(phi_m / phi_m1))
+
+
+def fuzzy_min_length(m, **_):
+    """Return m + 2, the shortest series with two (m + 1)-templates."""
+    return m + 2
+
+
+FUZZY = Measure(prepare_fuzzy, fuzzy_similarities, fuzzy_value, fuzzy_min_length, sum_stats)
+
+
 @renamed(sample_length="m", n="exponent")
 def fuzzy_entropy(time_series, m=2, tolerance=None, exponent=2):
     """Calculate Fuzzy Entropy (FuzzyEn) using exponential membership function.
@@ -166,29 +208,7 @@ def fuzzy_entropy(time_series, m=2, tolerance=None, exponent=2):
            IEEE Transactions on Neural Systems and Rehabilitation Engineering 15.2 (2007): 266-272.
 
     """
-    time_series = validate_series(time_series)
-    check_integer("m", m, 1)
+    return FUZZY(time_series, m=m, tolerance=tolerance, exponent=exponent)
 
-    if not exponent > 0:
-        raise ValueError("exponent must be greater than 0.")
 
-    if len(time_series) < m + 2:
-        raise ValueError(f"Time series length ({len(time_series)}) must be at least m + 2 ({m + 2}).")
-
-    tolerance = resolve_tolerance(time_series, tolerance, 0.2)
-
-    # both lengths use the same number of vectors (the first n_vectors windows)
-    n_vectors = len(time_series) - m
-    inv_tol = 1.0 / tolerance
-
-    phi_m = compute_phi(prepare_centered_T(time_series, m, n_vectors, inv_tol), exponent)
-    phi_m1 = compute_phi(prepare_centered_T(time_series, m + 1, n_vectors, inv_tol), exponent)
-
-    if phi_m1 == 0 or phi_m == 0:
-        warn(
-            "Fuzzy similarity degrees vanished to zero. Returning NaN.",
-            RuntimeWarning,
-        )
-        return float(np.nan)
-
-    return float(np.log(phi_m / phi_m1))
+register(fuzzy_entropy, FUZZY)

@@ -193,7 +193,7 @@ class TestDispersionEntropy(unittest.TestCase):
                 np.testing.assert_array_equal(map_to_classes(x, classes, "ncdf"), expected)
 
     def test_map_to_classes_range_and_degenerate_input(self):
-        """Use labels 1..classes and return None for degenerate input."""
+        """Use labels 1..classes and put a constant series in the middle class."""
         local_rng = np.random.default_rng(2)
         x = local_rng.standard_normal(1000)
         for mapping in ("ncdf", "linear"):
@@ -201,7 +201,8 @@ class TestDispersionEntropy(unittest.TestCase):
             self.assertEqual(z.dtype, np.int64)
             self.assertEqual(z.min(), 1)
             self.assertEqual(z.max(), 6)
-            self.assertIsNone(map_to_classes(np.ones(10), 6, mapping))
+            np.testing.assert_array_equal(map_to_classes(np.ones(10), 6, mapping), np.full(10, 4))
+            np.testing.assert_array_equal(map_to_classes(np.ones(4), 3, mapping), np.full(4, 2))
 
     def test_dispersion_entropy_invalid_values(self):
         """Reject out-of-range parameters, bad shapes and non-finite data with ValueError."""
