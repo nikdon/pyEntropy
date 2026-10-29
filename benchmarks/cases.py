@@ -1,12 +1,10 @@
 """Benchmark inputs and registered pyentrp cases.
 
-Add a benchmark by decorating a function with `@bench("label")`. Coverage is inferred from public entropy functions
-named in the function body; pass `covers=` when a case calls a measure indirectly.
+Add a benchmark by decorating a function with `@bench("label")`.
 """
 
 from __future__ import annotations
 
-import inspect
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -18,122 +16,103 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
+SHANNON_SYMBOL_COUNT = 10
+
+
 @dataclass(frozen=True, eq=False)
-class Data:
+class BenchmarkData:
     """Store generated inputs used by benchmarks for one series length."""
 
-    x: np.ndarray  # white-noise series
-    r: float  # tolerance: 0.2 * std(x)
-    sym: np.ndarray  # x quantised into 10 integer symbols (for Shannon entropy)
+    series: np.ndarray  # white-noise series
+    tolerance: float  # tolerance: 0.2 * std(series)
+    symbols: np.ndarray  # quantile-bin indices from 0 to SHANNON_SYMBOL_COUNT - 1
 
-    @classmethod
-    def make(cls, n: int, seed: int = 0) -> Data:
-        """Generate white noise and derived inputs for a series of length `n`."""
-        x = np.random.default_rng(seed).standard_normal(n)
-        edges = np.quantile(x, np.linspace(0, 1, 11)[1:-1])
-        return cls(x=x, r=0.2 * float(np.std(x)), sym=np.digitize(x, edges))
+
+def make_data(n: int, seed: int = 0) -> BenchmarkData:
+    """Generate white noise and derived inputs for a series of length `n`."""
+    series = np.random.default_rng(seed).standard_normal(n)
+    quantile_levels = np.arange(1, SHANNON_SYMBOL_COUNT) / SHANNON_SYMBOL_COUNT
+    bin_edges = np.quantile(series, quantile_levels)
+    return BenchmarkData(
+        series=series,
+        tolerance=0.2 * float(np.std(series)),
+        symbols=np.digitize(series, bin_edges),
+    )
 
 
 @dataclass(frozen=True)
 class Case:
-    """Describe a benchmark and the public entropy measures it exercises."""
+    """Describe a benchmark and the computation it runs."""
 
     label: str
-    run: Callable[[Data], object]
-    covers: frozenset[str]  # public pyentrp.entropy functions this case exercises (for --check)
+    run: Callable[[BenchmarkData], object]
 
 
 CASES: list[Case] = []
 
 
-def _is_measure(name: str, fn) -> bool:
-    """Return whether a function is public rather than a helper such as util_* or time_delay_embedding."""
-    helper = name.startswith(("_", "util_")) or name == "time_delay_embedding"
-    return inspect.isfunction(fn) and fn.__module__ == ent.__name__ and not helper
-
-
-def _called_measures(fn: Callable) -> frozenset[str]:
-    """Public pyentrp.entropy functions a benchmark refers to, read from the names in its code."""
-    return frozenset(n for n in fn.__code__.co_names if _is_measure(n, getattr(ent, n, None)))
-
-
-def bench(label: str, covers: str | None = None):
-    """Register a benchmark. The decorated function receives a `Data` and runs the computation.
-
-    Which pyentrp function it exercises is read from the function body. Pass `covers="name"` only when the
-    benchmark calls pyentrp indirectly (through a helper of your own), so the body doesn't mention it.
-    """
-    if covers is not None and not _is_measure(covers, getattr(ent, covers, None)):
-        raise ValueError(f"bench({label!r}): {covers!r} is not a public function of pyentrp.entropy")
+def bench(label: str):
+    """Register a benchmark whose function receives `BenchmarkData` and runs the computation."""
     if any(c.label == label for c in CASES):
         raise ValueError(f"bench({label!r}): label already used")
 
-    def register(fn: Callable[[Data], object]) -> Callable[[Data], object]:
-        names = _called_measures(fn) | ({covers} if covers else set())
-        if not names:
-            raise ValueError(f"bench({label!r}): calls no public pyentrp.entropy function; pass covers=... if indirect")
-        CASES.append(Case(label, fn, frozenset(names)))
+    def register(fn: Callable[[BenchmarkData], object]) -> Callable[[BenchmarkData], object]:
+        CASES.append(Case(label, fn))
         return fn
 
     return register
 
 
-@bench("shannon_entropy (10 symbols)")
-def _(d):
-    return ent.shannon_entropy(d.sym)
+@bench(f"shannon_entropy ({SHANNON_SYMBOL_COUNT} quantile bins)")
+def _benchmark_shannon_entropy(data: BenchmarkData):
+    return ent.shannon_entropy(data.symbols)
 
 
 @bench("permutation_entropy (order 3)")
-def _(d):
-    return ent.permutation_entropy(d.x, order=3)
+def _benchmark_permutation_entropy_order_3(data: BenchmarkData):
+    return ent.permutation_entropy(data.series, order=3)
 
 
 @bench("permutation_entropy (order 6)")
-def _(d):
-    return ent.permutation_entropy(d.x, order=6)
+def _benchmark_permutation_entropy_order_6(data: BenchmarkData):
+    return ent.permutation_entropy(data.series, order=6)
 
 
 @bench("weighted_permutation_entropy (order 3)")
-def _(d):
-    return ent.weighted_permutation_entropy(d.x, order=3)
+def _benchmark_weighted_permutation_entropy_order_3(data: BenchmarkData):
+    return ent.weighted_permutation_entropy(data.series, order=3)
 
 
 @bench("multiscale_permutation_entropy (m=3, 5 scales)")
-def _(d):
-    return ent.multiscale_permutation_entropy(d.x, 3, 1, 5)
+def _benchmark_multiscale_permutation_entropy(data: BenchmarkData):
+    return ent.multiscale_permutation_entropy(data.series, 3, 1, 5)
 
 
 @bench("dispersion_entropy (c=6, m=3)")
-def _(d):
-    return ent.dispersion_entropy(d.x, classes=6, order=3)
+def _benchmark_dispersion_entropy(data: BenchmarkData):
+    return ent.dispersion_entropy(data.series, classes=6, order=3)
 
 
 @bench("sample_entropy (m=2)")
-def _(d):
-    return ent.sample_entropy(d.x, 3, d.r)  # sample_length = m + 1
+def _benchmark_sample_entropy(data: BenchmarkData):
+    return ent.sample_entropy(data.series, 3, data.tolerance)  # sample_length = m + 1
 
 
 @bench("multiscale_entropy (m=2, 5 scales)")
-def _(d):
-    return ent.multiscale_entropy(d.x, 3, d.r, maxscale=5)
+def _benchmark_multiscale_entropy(data: BenchmarkData):
+    return ent.multiscale_entropy(data.series, 3, data.tolerance, maxscale=5)
 
 
 @bench("composite_multiscale_entropy (m=2, scale 5)")
-def _(d):
-    return ent.composite_multiscale_entropy(d.x, 3, 5, d.r)
+def _benchmark_composite_multiscale_entropy(data: BenchmarkData):
+    return ent.composite_multiscale_entropy(data.series, 3, 5, data.tolerance)
 
 
 @bench("rcmse (m=2, scale 5)")
-def _(d):
-    return ent.rcmse(d.x, 3, 5, d.r)
+def _benchmark_rcmse(data: BenchmarkData):
+    return ent.rcmse(data.series, 3, 5, data.tolerance)
 
 
 @bench("fuzzy_entropy (m=2)")
-def _(d):
-    return ent.fuzzy_entropy(d.x, 2, d.r, 2)
-
-
-def uncovered() -> list[str]:
-    """Return public entropy functions that lack a registered benchmark."""
-    covered = {getattr(ent, n) for case in CASES for n in case.covers}
-    return sorted(n for n, f in inspect.getmembers(ent) if _is_measure(n, f) and f not in covered)
+def _benchmark_fuzzy_entropy(data: BenchmarkData):
+    return ent.fuzzy_entropy(data.series, 2, data.tolerance, 2)

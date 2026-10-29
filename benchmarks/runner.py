@@ -4,7 +4,6 @@
     python benchmarks/bench.py --only sample fuzzy     # subset, matched on the label
     python benchmarks/bench.py --sizes 1000 5000 --repeats 5
     python benchmarks/bench.py --json results.json     # also save raw timings
-    python benchmarks/bench.py --check                 # fail if a public function has no benchmark
     python benchmarks/bench.py --no-isolate            # run everything in this process (faster, for debugging)
 
 Each case runs in its own fresh Python process (single-threaded BLAS), so one case cannot affect another through
@@ -30,21 +29,21 @@ import numpy as np
 from pyentrp import entropy as ent
 
 if __package__:
-    from .cases import CASES, Case, Data, uncovered
+    from .cases import CASES, BenchmarkData, Case, make_data
 else:
-    from cases import CASES, Case, Data, uncovered
+    from cases import CASES, BenchmarkData, Case, make_data
 
 RESULT_MARKER = "BENCH_RESULT "  # prefix of the JSON line a worker process prints
 SLOW_CALL_SECONDS = 2.0
 
 
-def time_case(case: Case, d: Data, repeats: int, slow: float = SLOW_CALL_SECONDS) -> float:
+def time_case(case: Case, data: BenchmarkData, repeats: int, slow: float = SLOW_CALL_SECONDS) -> float:
     """Seconds per call: the best of `repeats` timeit runs.
 
     `timeit` picks the loop count (autorange) so that fast calls are measured over >= 0.2 s, and keeps garbage
     collection out of the timed region. A call that is already slow is timed once and not repeated.
     """
-    timer = timeit.Timer(lambda: case.run(d))
+    timer = timeit.Timer(lambda: case.run(data))
     number, total = timer.autorange()
     if total / number > slow:
         return total / number
@@ -66,12 +65,12 @@ def measure(case: Case, sizes: list[int], repeats: int, budget: float) -> dict[i
     prev: tuple[int, float] | None = None
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        check_finite(case, case.run(Data.make(sizes[0])))  # warm-up, also validates the result
+        check_finite(case, case.run(make_data(sizes[0])))  # warm-up, also validates the result
         for n in sizes:
             if prev and prev[1] * (n / prev[0]) ** 2 > budget:
                 row[n] = None
                 continue
-            t = time_case(case, Data.make(n), repeats)
+            t = time_case(case, make_data(n), repeats)
             row[n] = t
             prev = (n, t)
     return row
@@ -203,7 +202,6 @@ def main() -> int:
     p.add_argument("--budget", type=float, default=120.0, help="skip a size projected to take longer than this (s)")
     p.add_argument("--only", nargs="+", metavar="TEXT", help="run only cases whose label contains any of these")
     p.add_argument("--json", metavar="PATH", help="also write raw timings to this file")
-    p.add_argument("--check", action="store_true", help="only check that every public function has a benchmark")
     p.add_argument("--no-isolate", action="store_true", help="run all cases in this process")
     p.add_argument("--worker", metavar="LABEL", help=argparse.SUPPRESS)  # internal: run one case, print JSON
     args = p.parse_args()
@@ -224,12 +222,6 @@ def main() -> int:
 
     for problem in provenance_warnings():
         print(f"WARNING: {problem}", file=sys.stderr)
-    missing = uncovered()
-    if missing:
-        print("No benchmark for: " + ", ".join(missing) + "  (add a @bench block)", file=sys.stderr)
-    if args.check:
-        return 1 if missing else 0
-
     cases = CASES
     if args.only:
         needles = [s.lower() for s in args.only]
