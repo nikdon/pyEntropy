@@ -89,7 +89,7 @@ scale 5: 1.502
 
 ## Performance
 
-pyentrp 2.3.0, Python 3.13.18, NumPy 2.2.6, Apple M4 Pro. White noise, best of 3 timeit repeats, each benchmark in its own single-threaded process.
+pyentrp 2.3.0, Python 3.13.18, NumPy 2.2.6, Apple M4 Pro. White noise, best of up to 3 timeit repeats (calls over 2s are timed once), each benchmark in its own single-threaded process.
 
 | Function | N = 1,000 | N = 10,000 | N = 100,000 |
 |---|---|---|---|
