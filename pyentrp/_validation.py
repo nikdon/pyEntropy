@@ -7,18 +7,18 @@ import warnings
 
 import numpy as np
 
-_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__)) + os.sep
+PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__)) + os.sep
 
 
-def _warn(message, category):
+def warn(message, category):
     """Issue a warning attributed to the first caller outside pyentrp, however deep the call."""
     frame, level = sys._getframe(0), 1
-    while frame is not None and frame.f_code.co_filename.startswith(_PACKAGE_DIR):
+    while frame is not None and frame.f_code.co_filename.startswith(PACKAGE_DIR):
         frame, level = frame.f_back, level + 1
     warnings.warn(message, category, stacklevel=level)
 
 
-def _check_integer(name, value, minimum, maximum=None):
+def check_integer(name, value, minimum, maximum=None):
     """Validate that `value` is an integer (booleans excluded) in [minimum, maximum].
 
     Raises
@@ -37,7 +37,7 @@ def _check_integer(name, value, minimum, maximum=None):
         raise ValueError(f"{name} must be an integer <= {maximum}.")
 
 
-def _validate_series(time_series, keep_integer=False):
+def validate_series(time_series, keep_integer=False):
     """Return the time series as a 1D float array.
 
     Parameters
@@ -68,7 +68,7 @@ def _validate_series(time_series, keep_integer=False):
     return time_series
 
 
-def _check_tolerance(tolerance):
+def check_tolerance(tolerance):
     """Validate an explicitly supplied tolerance.
 
     Raises
@@ -81,7 +81,7 @@ def _check_tolerance(tolerance):
         raise ValueError("tolerance must be greater than 0.")
 
 
-def _default_tolerance(time_series, factor):
+def default_tolerance(time_series, factor):
     """Return the default template-matching tolerance, factor * std(time_series).
 
     A constant series has std 0, and a zero tolerance matches nothing under the strict
@@ -95,15 +95,15 @@ def _default_tolerance(time_series, factor):
     return factor * np.std(time_series)
 
 
-def _resolve_tolerance(time_series, tolerance, factor):
+def resolve_tolerance(time_series, tolerance, factor):
     """Return the tolerance to use: the default factor * std(time_series) if None, else the checked value."""
     if tolerance is None:
-        return _default_tolerance(time_series, factor)
-    _check_tolerance(tolerance)
+        return default_tolerance(time_series, factor)
+    check_tolerance(tolerance)
     return tolerance
 
 
-def _check_embedding_length(time_series, order, delay):
+def check_embedding_length(time_series, order, delay):
     """Check that the series holds at least one window of `order` samples spaced `delay` apart.
 
     Raises
@@ -119,8 +119,8 @@ def _check_embedding_length(time_series, order, delay):
         )
 
 
-def _renamed(**old_to_new):
-    """Accept deprecated keyword names: ``@_renamed(old="new")`` maps ``old=`` to ``new=`` with a warning.
+def renamed(**old_to_new):
+    """Accept deprecated keyword names: ``@renamed(old="new")`` maps ``old=`` to ``new=`` with a warning.
 
     Positional arguments are unaffected. Passing both names raises TypeError.
 
@@ -133,7 +133,7 @@ def _renamed(**old_to_new):
                 if old in kwargs:
                     if new in kwargs:
                         raise TypeError(f"{func.__name__}() got both {old!r} and {new!r}; pass only {new!r}.")
-                    _warn(
+                    warn(
                         f"{func.__name__}(): {old!r} is deprecated and will be removed in pyentrp 4.0; use {new!r}.",
                         DeprecationWarning,
                     )
@@ -145,7 +145,7 @@ def _renamed(**old_to_new):
     return decorate
 
 
-def _template_length(sample_length, m):
+def template_length(sample_length, m):
     """Return the longest template length, m + 1, from `m` or from the deprecated `sample_length`.
 
     Raises
@@ -159,12 +159,12 @@ def _template_length(sample_length, m):
     if m is not None:
         if sample_length is not None:
             raise TypeError("pass only m; sample_length is the deprecated m + 1.")
-        _check_integer("m", m, 0)
+        check_integer("m", m, 0)
         return m + 1
     if sample_length is None:
         raise TypeError("missing required argument 'm'.")
-    _check_integer("sample_length", sample_length, 1)
-    _warn(
+    check_integer("sample_length", sample_length, 1)
+    warn(
         f"sample_length is deprecated and will be removed in pyentrp 4.0; "
         f"use m=sample_length - 1 (sample_length={sample_length} is m={sample_length - 1}).",
         DeprecationWarning,

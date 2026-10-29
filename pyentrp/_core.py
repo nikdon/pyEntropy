@@ -5,13 +5,13 @@ from collections import Counter
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-from ._validation import _check_embedding_length, _check_integer, _renamed, _validate_series, _warn
+from ._validation import check_embedding_length, check_integer, renamed, validate_series, warn
 
 # largest pattern space (order! or classes ** order) counted with np.bincount; larger spaces use np.unique.
-_BINCOUNT_MAX_PATTERNS = 1_000_000
+BINCOUNT_MAX_PATTERNS = 1_000_000
 
 
-@_renamed(embedding_dimension="order")
+@renamed(embedding_dimension="order")
 def time_delay_embedding(time_series, order, delay):
     """Calculate time-delayed embedding.
 
@@ -39,8 +39,8 @@ def time_delay_embedding(time_series, order, delay):
         If order or delay is below 1, or the series is too short.
 
     """
-    _check_integer("order", order, 1)
-    _check_integer("delay", delay, 1)
+    check_integer("order", order, 1)
+    check_integer("delay", delay, 1)
     window = (order - 1) * delay + 1
     view = sliding_window_view(time_series, window_shape=window)
     return view[:, ::delay] if delay > 1 else view
@@ -80,15 +80,15 @@ def util_pattern_space(time_series, lag, dim):
         Always.
 
     """
-    _warn(
+    warn(
         "util_pattern_space is deprecated and will be removed in pyentrp 4.0; "
         "use time_delay_embedding(time_series, dim, lag).copy().",
         DeprecationWarning,
     )
-    time_series = _validate_series(time_series)
-    _check_integer("lag", lag, 1)
-    _check_integer("dim", dim, 1)
-    _check_embedding_length(time_series, dim, lag)
+    time_series = validate_series(time_series)
+    check_integer("lag", lag, 1)
+    check_integer("dim", dim, 1)
+    check_embedding_length(time_series, dim, lag)
     return time_delay_embedding(time_series, dim, lag).copy()
 
 
@@ -115,18 +115,18 @@ def util_granulate_time_series(time_series, scale):
         If scale is below 1, or time_series is not 1D or contains non-finite values.
 
     """
-    time_series = _validate_series(time_series)
-    _check_integer("scale", scale, 1)
-    return _granulate(time_series, scale)
+    time_series = validate_series(time_series)
+    check_integer("scale", scale, 1)
+    return coarse_grain(time_series, scale)
 
 
-def _granulate(x, scale):
+def coarse_grain(x, scale):
     """Average non-overlapping blocks of `scale` samples, dropping an incomplete last block."""
     b = len(x) // scale
     return np.mean(x[: b * scale].reshape(b, scale), axis=1)
 
 
-def _count_ids(ids, n_space, weights=None):
+def count_ids(ids, n_space, weights=None):
     """Count (or sum weights of) integer pattern ids in [0, n_space - 1].
 
     Small pattern spaces use np.bincount over the whole space; larger ones relabel the observed ids
@@ -134,13 +134,13 @@ def _count_ids(ids, n_space, weights=None):
     may be present in the result.
 
     """
-    if n_space <= _BINCOUNT_MAX_PATTERNS:
+    if n_space <= BINCOUNT_MAX_PATTERNS:
         return np.bincount(ids, weights=weights, minlength=n_space)
     _, inv = np.unique(ids, return_inverse=True)
     return np.bincount(inv.ravel(), weights=weights)
 
 
-def _entropy_bits(weights):
+def entropy_bits(weights):
     """Return the Shannon entropy in bits of the distribution proportional to `weights`.
 
     Zero weights are ignored (0 * log 0 := 0). Gives +0.0, never -0.0, when a single symbol
@@ -181,4 +181,4 @@ def shannon_entropy(time_series):
 
     if counts.size == 0:
         raise ValueError("time_series must not be empty.")
-    return _entropy_bits(counts)
+    return entropy_bits(counts)

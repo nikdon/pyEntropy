@@ -4,14 +4,14 @@ import math
 
 import numpy as np
 
-from ._core import _count_ids, _entropy_bits, _granulate
-from ._validation import _check_embedding_length, _check_integer, _renamed, _validate_series, _warn
+from ._core import coarse_grain, count_ids, entropy_bits
+from ._validation import check_embedding_length, check_integer, renamed, validate_series, warn
 
 # largest permutation order: pattern ids go up to order! - 1, and 20! - 1 is the last that fits in int64.
-_MAX_PERMUTATION_ORDER = 20
+MAX_PERMUTATION_ORDER = 20
 
 
-def _motif_lehmer_ids(x, order, delay):
+def motif_lehmer_ids(x, order, delay):
     """Encode the ordinal pattern of every window as an integer in [0, order! - 1].
 
     The pattern is encoded as a Lehmer code (inversion table) in the factorial number
@@ -81,7 +81,7 @@ def _motif_lehmer_ids(x, order, delay):
     return lehmer
 
 
-def _window_weights(x, order, delay):
+def window_weights(x, order, delay):
     """Compute unnormalized, shift-invariant variance weights of every window.
 
     Returns order**2 * var(window) for each window (computed from differences to the first
@@ -184,12 +184,12 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
 
     """
     # keep integer input as is: converting to float would merge large integers before they are compared
-    x = _validate_series(time_series, keep_integer=True)
-    _check_integer("order", order, 1, _MAX_PERMUTATION_ORDER)
-    _check_integer("delay", delay, 1)
-    _check_embedding_length(x, order, delay)
+    x = validate_series(time_series, keep_integer=True)
+    check_integer("order", order, 1, MAX_PERMUTATION_ORDER)
+    check_integer("delay", delay, 1)
+    check_embedding_length(x, order, delay)
     # associate a unique integer in [0, order! - 1] to each ordinal pattern
-    pe = _permutation_entropy(x, order, delay)
+    pe = permutation_bits(x, order, delay)
     n_motifs = math.factorial(order)
     # order 1 has a single pattern, so pe is 0 and there is nothing to normalize by
     if normalize and pe > 0.0:
@@ -197,12 +197,12 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
     return pe
 
 
-def _permutation_entropy(x, order, delay):
+def permutation_bits(x, order, delay):
     """Return the unnormalized permutation entropy in bits of a validated series."""
-    return _entropy_bits(_count_ids(_motif_lehmer_ids(x, order, delay), math.factorial(order)))
+    return entropy_bits(count_ids(motif_lehmer_ids(x, order, delay), math.factorial(order)))
 
 
-@_renamed(m="order")
+@renamed(m="order")
 def multiscale_permutation_entropy(time_series, order, delay, scale):
     """Calculate the Multiscale Permutation Entropy: permutation entropy at scales 1 .. scale.
 
@@ -245,25 +245,25 @@ def multiscale_permutation_entropy(time_series, order, delay, scale):
     .. [2] http://www.mathworks.com/matlabcentral/fileexchange/37288-multiscale-permutation-entropy-mpe/content/MPerm.m
 
     """
-    time_series = _validate_series(time_series, keep_integer=True)
-    _check_integer("order", order, 1, _MAX_PERMUTATION_ORDER)
-    _check_integer("delay", delay, 1)
-    _check_integer("scale", scale, 1)
+    time_series = validate_series(time_series, keep_integer=True)
+    check_integer("order", order, 1, MAX_PERMUTATION_ORDER)
+    check_integer("delay", delay, 1)
+    check_integer("scale", scale, 1)
 
     min_length = (order - 1) * delay + 1
     mspe = np.full(scale, np.nan)
     for i in range(scale):
         # scale 1 is the series itself; averaging would turn integers into floats and could merge them
-        coarse_time_series = time_series if i == 0 else _granulate(time_series, i + 1)
+        coarse_time_series = time_series if i == 0 else coarse_grain(time_series, i + 1)
         if len(coarse_time_series) < min_length:
             # coarse series only get shorter with scale, so every remaining scale is too short
-            _warn(
+            warn(
                 f"Coarse-grained series is shorter than (order - 1) * delay + 1 ({min_length}) "
                 f"from scale {i + 1} on. Returning NaN for those scales.",
                 RuntimeWarning,
             )
             break
-        mspe[i] = _permutation_entropy(coarse_time_series, order, delay)
+        mspe[i] = permutation_bits(coarse_time_series, order, delay)
     return mspe
 
 
@@ -323,17 +323,17 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
 
     """
     # patterns come from the original values (integers are not rounded); the weights need float
-    x = _validate_series(time_series, keep_integer=True)
-    _check_integer("order", order, 1, _MAX_PERMUTATION_ORDER)
-    _check_integer("delay", delay, 1)
-    _check_embedding_length(x, order, delay)
+    x = validate_series(time_series, keep_integer=True)
+    check_integer("order", order, 1, MAX_PERMUTATION_ORDER)
+    check_integer("delay", delay, 1)
+    check_embedding_length(x, order, delay)
 
-    lehmer = _motif_lehmer_ids(x, order=order, delay=delay)
-    weights = _window_weights(x.astype(np.float64, copy=False), order=order, delay=delay)
+    lehmer = motif_lehmer_ids(x, order=order, delay=delay)
+    weights = window_weights(x.astype(np.float64, copy=False), order=order, delay=delay)
 
     n_motifs = math.factorial(order)
     # motifs without weight (e.g. only constant windows) contribute nothing
-    wpe = _entropy_bits(_count_ids(lehmer, n_motifs, weights))
+    wpe = entropy_bits(count_ids(lehmer, n_motifs, weights))
     if normalize and wpe > 0.0:
         wpe /= math.log2(n_motifs)
     return wpe

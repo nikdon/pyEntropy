@@ -5,11 +5,11 @@ from statistics import NormalDist
 
 import numpy as np
 
-from ._core import _BINCOUNT_MAX_PATTERNS, _count_ids, _entropy_bits, time_delay_embedding
-from ._validation import _check_embedding_length, _check_integer, _validate_series
+from ._core import BINCOUNT_MAX_PATTERNS, count_ids, entropy_bits, time_delay_embedding
+from ._validation import check_embedding_length, check_integer, validate_series
 
 
-def _validate_dispersion_params(  # noqa: PLR0913
+def validate_dispersion_params(  # noqa: PLR0913
     time_series,
     classes,
     order,
@@ -38,11 +38,11 @@ def _validate_dispersion_params(  # noqa: PLR0913
         'linear' (case-insensitive).
 
     """
-    time_series = _validate_series(time_series)
+    time_series = validate_series(time_series)
 
-    _check_integer("classes", classes, 2)
-    _check_integer("order", order, 1)
-    _check_integer("delay", delay, 1)
+    check_integer("classes", classes, 2)
+    check_integer("order", order, 1)
+    check_integer("delay", delay, 1)
 
     if not isinstance(mapping, str):
         raise TypeError(f"mapping must be a string, got {type(mapping).__name__}.")
@@ -54,12 +54,12 @@ def _validate_dispersion_params(  # noqa: PLR0913
     if mapping not in ("ncdf", "linear"):
         raise ValueError("mapping must be either 'ncdf' or 'linear'.")
 
-    _check_embedding_length(time_series, order, delay)
+    check_embedding_length(time_series, order, delay)
 
     return time_series, mapping
 
 
-def _map_to_classes(time_series, classes, mapping):
+def map_to_classes(time_series, classes, mapping):
     """Map a time series to integer classes.
 
     Parameters
@@ -165,14 +165,14 @@ def dispersion_entropy(  # noqa: PLR0913
     0.667
 
     """
-    time_series, mapping = _validate_dispersion_params(time_series, classes, order, delay, mapping, normalize)
+    time_series, mapping = validate_dispersion_params(time_series, classes, order, delay, mapping, normalize)
 
-    z = _map_to_classes(time_series, classes, mapping)
+    z = map_to_classes(time_series, classes, mapping)
     if z is None:
         return 0.0
 
     # compare logs first: classes ** order can be an enormous integer
-    if order * math.log(classes) <= math.log(_BINCOUNT_MAX_PATTERNS):
+    if order * math.log(classes) <= math.log(BINCOUNT_MAX_PATTERNS):
         n_patterns = int(classes) ** int(order)
         # encode each pattern as a base-`classes` integer
         n_win = len(z) - (order - 1) * delay
@@ -182,13 +182,13 @@ def dispersion_entropy(  # noqa: PLR0913
             s = k * delay
             ids *= classes
             ids += z[s : s + n_win]
-        counts = _count_ids(ids, n_patterns)
+        counts = count_ids(ids, n_patterns)
     else:
         # count identical rows; no integer encoding, which could overflow int64
         patterns = time_delay_embedding(z, order, delay)
         _, counts = np.unique(patterns, axis=0, return_counts=True)
 
-    de = _entropy_bits(counts)
+    de = entropy_bits(counts)
     if normalize and de > 0.0:
         de /= order * math.log2(classes)
     return de

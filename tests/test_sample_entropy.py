@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 
 from pyentrp import entropy as ent
+from pyentrp._sample import count_template_matches
 from tests._entropy_test_data import TS_SAMPLE_ENTROPY
 from tests._template_match_reference import _brute_match_counts
 
@@ -20,14 +21,14 @@ class TestTemplateMatches(unittest.TestCase):
     def test_count_template_matches(self):
         """Count matching templates at each template length."""
         ts = [1, 2, 1, 2, 1]
-        matches = ent._count_template_matches(ts, sample_length=2, tolerance=0.5)
+        matches = count_template_matches(ts, sample_length=2, tolerance=0.5)
         np.testing.assert_array_equal(matches, np.array([10.0, 2.0, 2.0]))
 
     def test_count_template_matches_unsigned_input(self):
         """Do not wrap differences around for unsigned integer input."""
         expected = np.array([10.0, 6.0, 6.0])
-        as_float = ent._count_template_matches(np.array([3, 4, 3, 4, 3], dtype=float), 2, 1.5)
-        as_uint = ent._count_template_matches(np.array([3, 4, 3, 4, 3], dtype=np.uint8), 2, 1.5)
+        as_float = count_template_matches(np.array([3, 4, 3, 4, 3], dtype=float), 2, 1.5)
+        as_uint = count_template_matches(np.array([3, 4, 3, 4, 3], dtype=np.uint8), 2, 1.5)
         np.testing.assert_array_equal(as_float, expected)
         np.testing.assert_array_equal(as_uint, expected)
 
@@ -37,7 +38,7 @@ class TestTemplateMatches(unittest.TestCase):
         series = local_rng.standard_normal(60)
         for sample_length in (1, 2, 3):
             tol = 0.5
-            counts = ent._count_template_matches(series, sample_length, tol)
+            counts = count_template_matches(series, sample_length, tol)
             n_prefix, n_full = _brute_match_counts(series, sample_length, tol)
             self.assertEqual(counts[sample_length - 1], n_prefix)
             self.assertEqual(counts[sample_length], n_full)

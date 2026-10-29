@@ -2,11 +2,11 @@
 
 import numpy as np
 
-from ._core import _granulate
-from ._validation import _check_integer, _renamed, _resolve_tolerance, _template_length, _validate_series, _warn
+from ._core import coarse_grain
+from ._validation import check_integer, renamed, resolve_tolerance, template_length, validate_series, warn
 
 
-def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32):
+def count_template_matches(time_series, sample_length, tolerance, chunk_size=32):
     """Count template matches of lengths 0 to sample_length using Chebyshev norm.
 
     Parameters
@@ -134,25 +134,25 @@ def sample_entropy(time_series, sample_length=None, tolerance=None, *, m=None):
            https://physionet.org/content/sampen/1.0.0/
 
     """
-    length = _template_length(sample_length, m)
-    time_series = _validate_series(time_series)
-    tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
-    return _sampen(time_series, length, tolerance)
+    length = template_length(sample_length, m)
+    time_series = validate_series(time_series)
+    tolerance = resolve_tolerance(time_series, tolerance, 0.1)
+    return sampen(time_series, length, tolerance)
 
 
-def _sampen(x, length, tolerance):
+def sampen(x, length, tolerance):
     """Return SE[k] = log(N[k] / N[k + 1]) for k = 0 .. length - 1 (written so it never gives -0.0)."""
-    counts = _count_template_matches(x, length, tolerance)
+    counts = count_template_matches(x, length, tolerance)
     return np.log(counts[:-1] / counts[1:])
 
 
-def _sampen_last(x, length, tolerance):
+def sampen_last(x, length, tolerance):
     """Return only SE[length - 1], the sample entropy for m = length - 1."""
-    counts = _count_template_matches(x, length, tolerance)
+    counts = count_template_matches(x, length, tolerance)
     return np.log(counts[-2] / counts[-1])
 
 
-@_renamed(maxscale="scale")
+@renamed(maxscale="scale")
 def multiscale_entropy(time_series, sample_length=None, tolerance=None, scale=20, *, m=None):
     """Calculate Multiscale Entropy: SampEn(m, r) of the coarse-grained series at scales 1 .. scale.
 
@@ -196,14 +196,14 @@ def multiscale_entropy(time_series, sample_length=None, tolerance=None, scale=20
            complex physiologic time series. Physical Review Letters, 89(6), 068102.
 
     """
-    length = _template_length(sample_length, m)
-    time_series = _validate_series(time_series)
-    tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
+    length = template_length(sample_length, m)
+    time_series = validate_series(time_series)
+    tolerance = resolve_tolerance(time_series, tolerance, 0.1)
     if scale is None:
         scale = 20
-    _check_integer("scale", scale, 1)
+    check_integer("scale", scale, 1)
 
-    return np.array([_sampen_last(_granulate(time_series, k), length, tolerance) for k in range(1, scale + 1)])
+    return np.array([sampen_last(coarse_grain(time_series, k), length, tolerance) for k in range(1, scale + 1)])
 
 
 def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
@@ -246,16 +246,16 @@ def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tole
         composite multiscale entropy." Entropy 15.3 (2013): 1069-1084.
 
     """
-    length = _template_length(sample_length, m)
-    time_series = _validate_series(time_series)
-    _check_integer("scale", scale, 1)
-    tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
+    length = template_length(sample_length, m)
+    time_series = validate_series(time_series)
+    check_integer("scale", scale, 1)
+    tolerance = resolve_tolerance(time_series, tolerance, 0.1)
 
     cmse = np.zeros(scale)
     for i in range(scale):
         k = i + 1
         for j in range(k):
-            cmse[i] += _sampen_last(_granulate(time_series[j:], k), length, tolerance) / k
+            cmse[i] += sampen_last(coarse_grain(time_series[j:], k), length, tolerance) / k
     return cmse
 
 
@@ -311,27 +311,27 @@ def rcmse(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
            for time series complexity analysis." IEEE Signal Processing Letters (2014).
 
     """
-    length = _template_length(sample_length, m)
-    time_series = _validate_series(time_series)
-    _check_integer("scale", scale, 1)
+    length = template_length(sample_length, m)
+    time_series = validate_series(time_series)
+    check_integer("scale", scale, 1)
 
     if len(time_series) < length + 1:
         raise ValueError(f"Time series length ({len(time_series)}) must be at least m + 2 ({length + 1}).")
 
-    tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
+    tolerance = resolve_tolerance(time_series, tolerance, 0.1)
 
     rcmse_values = np.zeros(scale)
 
     for i in range(scale):
         total_matches = np.zeros(length + 1)
         for j in range(i + 1):
-            total_matches += _count_template_matches(_granulate(time_series[j:], i + 1), length, tolerance)
+            total_matches += count_template_matches(coarse_grain(time_series[j:], i + 1), length, tolerance)
 
         n_m_plus_1 = total_matches[length]
         n_m = total_matches[length - 1]
 
         if n_m_plus_1 == 0 or n_m == 0:
-            _warn(
+            warn(
                 f"No template matches found at scale {i + 1}. Returning NaN.",
                 RuntimeWarning,
             )
