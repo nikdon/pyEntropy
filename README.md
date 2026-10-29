@@ -138,6 +138,11 @@ If pyentrp contributes to your research, please cite it. GitHub's "Cite this rep
 
 Please also cite the original paper of each measure you use (links in the table above).
 
+## Acknowledgements
+
+Raphael Vallat sped up permutation entropy and added base-2 logarithms and normalization (2018).
+Samuel Dotson contributed weighted permutation entropy (2021).
+
 ## Contributing
 
 Bug reports, fixes and new measures are welcome: open an [issue](https://github.com/nikdon/pyEntropy/issues) or a

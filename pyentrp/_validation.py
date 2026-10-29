@@ -1,0 +1,104 @@
+"""Input checks shared by all entropy measures."""
+
+import numpy as np
+
+
+def _check_integer(name, value, minimum, maximum=None):
+    """Validate that `value` is an integer (booleans excluded) in [minimum, maximum].
+
+    Raises
+    ------
+    TypeError
+        If value is not an integer.
+    ValueError
+        If value is below the minimum or above the maximum (when given).
+
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+        raise TypeError(f"{name} must be an integer, got {type(value).__name__}.")
+    if value < minimum:
+        raise ValueError(f"{name} must be an integer >= {minimum}.")
+    if maximum is not None and value > maximum:
+        raise ValueError(f"{name} must be an integer <= {maximum}.")
+
+
+def _validate_series(time_series, keep_integer=False):
+    """Return the time series as a 1D float array.
+
+    Parameters
+    ----------
+    time_series : array_like
+        Input series.
+    keep_integer : bool, optional
+        If True, return integer input with its dtype unchanged instead of converting it
+        to float. Use this where values are only compared: float64 cannot tell apart
+        integers above 2**53 (e.g. 2**53 and 2**53 + 1).
+
+    Raises
+    ------
+    ValueError
+        If the series is not 1D or contains NaN or infinite values.
+
+    """
+    time_series = np.asarray(time_series)
+    if not (keep_integer and np.issubdtype(time_series.dtype, np.integer)):
+        time_series = time_series.astype(float, copy=False)
+
+    if time_series.ndim != 1:
+        raise ValueError("time_series must be a 1D array.")
+
+    if not np.all(np.isfinite(time_series)):
+        raise ValueError("time_series must contain only finite values.")
+
+    return time_series
+
+
+def _check_tolerance(tolerance):
+    """Validate an explicitly supplied tolerance.
+
+    Raises
+    ------
+    ValueError
+        If tolerance is not greater than 0 (this includes NaN).
+
+    """
+    if not tolerance > 0:
+        raise ValueError("tolerance must be greater than 0.")
+
+
+def _default_tolerance(time_series, factor):
+    """Return the default template-matching tolerance, factor * std(time_series).
+
+    A constant series has std 0, and a zero tolerance matches nothing under the strict
+    `<` test. Every positive tolerance gives the same match counts on a constant series
+    (all differences are 0), so return 1.0 there: the result then equals the one for any
+    explicit tolerance, i.e. the limit as the tolerance goes to 0 from above.
+
+    """
+    if time_series.size and np.ptp(time_series) == 0:
+        return 1.0
+    return factor * np.std(time_series)
+
+
+def _resolve_tolerance(time_series, tolerance, factor):
+    """Return the tolerance to use: the default factor * std(time_series) if None, else the checked value."""
+    if tolerance is None:
+        return _default_tolerance(time_series, factor)
+    _check_tolerance(tolerance)
+    return tolerance
+
+
+def _check_embedding_length(time_series, order, delay):
+    """Check that the series holds at least one window of `order` samples spaced `delay` apart.
+
+    Raises
+    ------
+    ValueError
+        If the series has fewer than (order - 1) * delay + 1 samples.
+
+    """
+    min_length = (order - 1) * delay + 1
+    if len(time_series) < min_length:
+        raise ValueError(
+            f"Time series length ({len(time_series)}) must be at least (order - 1) * delay + 1 ({min_length})."
+        )
