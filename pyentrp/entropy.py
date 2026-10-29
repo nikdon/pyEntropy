@@ -60,6 +60,20 @@ def _check_tolerance(tolerance):
         raise ValueError("tolerance must be greater than 0.")
 
 
+def _default_tolerance(time_series, factor):
+    """Return the default template-matching tolerance, factor * std(time_series).
+
+    A constant series has std 0, and a zero tolerance matches nothing under the strict
+    `<` test. Every positive tolerance gives the same match counts on a constant series
+    (all differences are 0), so return 1.0 there: the result then equals the one for any
+    explicit tolerance, i.e. the limit as the tolerance goes to 0 from above.
+
+    """
+    if time_series.size and np.ptp(time_series) == 0:
+        return 1.0
+    return factor * np.std(time_series)
+
+
 def _check_embedding_length(time_series, order, delay):
     """Check that the series holds at least one window of `order` samples spaced `delay` apart.
 
@@ -310,7 +324,9 @@ def sample_entropy(time_series, sample_length, tolerance=None):
         length of longest template vector
     tolerance : float, optional
         Strict upper bound on the Chebyshev distance between templates,
-        in the same units as the time series. Defaults to 0.1 * std(time_series).
+        in the same units as the time series. Defaults to 0.1 * std(time_series);
+        for a constant series any positive tolerance gives the same result, which
+        is used instead of 0.
 
     Returns
     -------
@@ -349,12 +365,12 @@ def sample_entropy(time_series, sample_length, tolerance=None):
     _check_integer("sample_length", sample_length, 1)
 
     if tolerance is None:
-        tolerance = 0.1 * np.std(time_series)
+        tolerance = _default_tolerance(time_series, 0.1)
     else:
         _check_tolerance(tolerance)
 
     N_temp = _count_template_matches(time_series, sample_length, tolerance)
-    sampen = -np.log(N_temp[1:] / N_temp[:-1])
+    sampen = np.log(N_temp[:-1] / N_temp[1:])
     return sampen
 
 
@@ -368,7 +384,8 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
     sample_length : int
         Bandwidth or group of points
     tolerance : float
-        Tolerance value (default is 0.1 times the standard deviation of the `time_series`)
+        Tolerance value (default is 0.1 times the standard deviation of the `time_series`;
+        a constant series is treated as in `sample_entropy`)
     maxscale : int
         Maximum timescale (default is the length of the `time_series`)
 
@@ -396,7 +413,7 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=None
     _check_integer("sample_length", sample_length, 1)
 
     if tolerance is None:
-        tolerance = 0.1 * np.std(time_series)
+        tolerance = _default_tolerance(time_series, 0.1)
     else:
         _check_tolerance(tolerance)
 
@@ -631,7 +648,9 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     Returns
     -------
     mspe : np.ndarray
-        Array of Multiscale Permutation Entropies
+        Array of length scale; index i corresponds to scale i + 1. An entry is
+        NaN when the coarse-grained series at that scale has fewer than
+        (m - 1) * delay + 1 samples.
 
     References
     ----------
@@ -644,9 +663,14 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     TypeError
         If m, delay, or scale is not an integer (booleans excluded).
     ValueError
-        If m, delay, or scale is below 1, time_series is not 1D or contains
-        non-finite values, or a coarse-grained series has fewer than
-        (m - 1) * delay + 1 samples.
+        If m, delay, or scale is below 1, or time_series is not 1D or contains
+        non-finite values.
+
+    Warns
+    -----
+    RuntimeWarning
+        When the coarse-grained series is too short at some scales; those
+        entries are NaN.
 
     """
     time_series = _validate_series(time_series)
@@ -654,9 +678,19 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     _check_integer("delay", delay, 1)
     _check_integer("scale", scale, 1)
 
-    mspe = np.empty(scale)
+    min_length = (m - 1) * delay + 1
+    mspe = np.full(scale, np.nan)
     for i in range(scale):
         coarse_time_series = util_granulate_time_series(time_series, i + 1)
+        if len(coarse_time_series) < min_length:
+            # coarse series only get shorter with scale, so every remaining scale is too short
+            warnings.warn(
+                f"Coarse-grained series is shorter than (m - 1) * delay + 1 ({min_length}) "
+                f"from scale {i + 1} on. Returning NaN for those scales.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            break
         mspe[i] = permutation_entropy(coarse_time_series, order=m, delay=delay)
     return mspe
 
@@ -762,7 +796,8 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
     scale : int
         Scale factor
     tolerance : float
-        Tolerance (default = 0.1 * std(time_series))
+        Tolerance (default = 0.1 * std(time_series); a constant series is treated
+        as in `sample_entropy`)
 
     Returns
     -------
@@ -789,7 +824,7 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
     _check_integer("scale", scale, 1)
 
     if tolerance is None:
-        tolerance = 0.1 * np.std(time_series)
+        tolerance = _default_tolerance(time_series, 0.1)
     else:
         _check_tolerance(tolerance)
 
@@ -821,7 +856,8 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
     tolerance : float, optional
         Strict upper bound on the Chebyshev distance between templates,
         in the same units as the time series. Defaults to 0.1 * std(time_series)
-        from the original series and remains fixed across scales.
+        from the original series and remains fixed across scales. For a constant
+        series any positive tolerance gives the same result, which is used instead of 0.
 
     Returns
     -------
@@ -861,7 +897,7 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
         )
 
     if tolerance is None:
-        tolerance = 0.1 * np.std(time_series)
+        tolerance = _default_tolerance(time_series, 0.1)
     else:
         _check_tolerance(tolerance)
 
@@ -884,7 +920,7 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
             )
             rcmse_values[i] = np.nan
         else:
-            rcmse_values[i] = -np.log(n_m_plus_1 / n_m)
+            rcmse_values[i] = np.log(n_m / n_m_plus_1)
 
     return rcmse_values
 

@@ -93,3 +93,16 @@ class TestPermutationValidation(unittest.TestCase):
             value = func(PERM_ENTROPY_BANDT, order=1, normalize=True)
             self.assertEqual(value, 0.0)
             self.assertEqual(math.copysign(1.0, value), 1.0)
+
+
+class TestMultiscalePermutationShortScales(unittest.TestCase):
+    def test_too_short_scales_give_nan(self):
+        """Return NaN with a warning for scales whose coarse series is too short, and keep the others."""
+        series = RANDOM_TIME_SERIES[:20]
+        with self.assertWarns(RuntimeWarning):
+            res = ent.multiscale_permutation_entropy(series, 3, 2, 6)
+        # scale k leaves 20 // k samples; m=3, delay=2 needs at least 5
+        self.assertEqual(res.shape, (6,))
+        for k in range(1, 5):
+            self.assertEqual(res[k - 1], ent.permutation_entropy(ent.util_granulate_time_series(series, k), 3, 2))
+        self.assertTrue(np.all(np.isnan(res[4:])))

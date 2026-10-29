@@ -163,3 +163,35 @@ class TestMultiscaleValidation(unittest.TestCase):
         self.assertRaises(ValueError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, 2, 2, -1.0)
         self.assertRaises(ValueError, ent.composite_multiscale_entropy, [*TS_SAMPLE_ENTROPY, np.inf], 2, 2)
         self.assertRaises(TypeError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, 2, 2.0)
+
+
+class TestConstantSeries(unittest.TestCase):
+    """A constant series has std 0; the default tolerance must not turn that into NaN, inf or an error."""
+
+    CONSTANT = np.full(60, 3.0)
+
+    def _assert_positive_zeros(self, values):
+        values = np.atleast_1d(values)
+        np.testing.assert_array_equal(values, 0.0)
+        self.assertTrue(np.all(np.copysign(1.0, values) == 1.0), values)
+
+    def test_sample_entropy_default_matches_explicit_tolerance(self):
+        """Give the same result as any positive tolerance, with a zero last entry."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            default = ent.sample_entropy(self.CONSTANT, 3)
+        for tol in (1e-9, 0.5, 100.0):
+            np.testing.assert_array_equal(default, ent.sample_entropy(self.CONSTANT, 3, tol))
+        self._assert_positive_zeros(default[1:])
+
+    def test_multiscale_functions_return_zero(self):
+        """Return +0.0 at every scale for MSE, CMSE and RCMSE, without warnings."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self._assert_positive_zeros(ent.multiscale_entropy(self.CONSTANT, 3, maxscale=3))
+            self._assert_positive_zeros(ent.composite_multiscale_entropy(self.CONSTANT, 3, 3))
+            self._assert_positive_zeros(ent.rcmse(self.CONSTANT, 3, 3))
+
+    def test_float_constant_series(self):
+        """Treat a constant series of non-representable floats the same way."""
+        self._assert_positive_zeros(ent.rcmse(np.full(60, 0.1), 2, 2))
