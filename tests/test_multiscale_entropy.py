@@ -26,7 +26,7 @@ def _brute_rcmse(series, sample_length, scale, tolerance):
 class TestEntropy(unittest.TestCase):
     def test_multiscale_entropy(self):
         """Calculate multiscale entropy across the requested scales."""
-        multi_scale_entropy = ent.multiscale_entropy(RANDOM_TIME_SERIES, 4, maxscale=4)
+        multi_scale_entropy = ent.multiscale_entropy(RANDOM_TIME_SERIES, m=3, scale=4)
         np.testing.assert_allclose(
             multi_scale_entropy,
             np.array([3.178054, 3.178054, 2.890372, 3.401197]),
@@ -36,7 +36,7 @@ class TestEntropy(unittest.TestCase):
     def test_composite_multiscale_entropy(self):
         """Calculate composite multiscale entropy across scales."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
-        res = ent.composite_multiscale_entropy(signal, sample_length=3, scale=3)
+        res = ent.composite_multiscale_entropy(signal, m=2, scale=3)
         np.testing.assert_allclose(res, np.array([0.33085424, 0.19283124, 0.94056984]))
 
 
@@ -44,24 +44,24 @@ class TestRCMSE(unittest.TestCase):
     def test_rcmse_scale_1_equivalence(self):
         """Match sample entropy when RCMSE uses a single scale."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
-        se = ent.sample_entropy(signal, sample_length=3)[-1]
-        res = ent.rcmse(signal, sample_length=3, scale=1)
+        se = ent.sample_entropy(signal, m=2)[-1]
+        res = ent.rcmse(signal, m=2, scale=1)
         self.assertEqual(res.shape, (1,))
         np.testing.assert_allclose(res[0], se)
 
-        se_ts = ent.sample_entropy(TS_SAMPLE_ENTROPY, sample_length=4)[-1]
-        res_ts = ent.rcmse(TS_SAMPLE_ENTROPY, sample_length=4, scale=1)
+        se_ts = ent.sample_entropy(TS_SAMPLE_ENTROPY, m=3)[-1]
+        res_ts = ent.rcmse(TS_SAMPLE_ENTROPY, m=3, scale=1)
         np.testing.assert_allclose(res_ts[0], se_ts)
 
     def test_rcmse_sinusoidal(self):
         """Return expected RCMSE values for a sinusoidal signal."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
-        res = ent.rcmse(signal, sample_length=3, scale=3)
+        res = ent.rcmse(signal, m=2, scale=3)
         np.testing.assert_allclose(res, np.array([0.33085424, 0.19237189, 0.90078655]))
 
     def test_rcmse_random(self):
         """Return finite positive RCMSE values for random input."""
-        res = ent.rcmse(RANDOM_TIME_SERIES, sample_length=3, scale=4)
+        res = ent.rcmse(RANDOM_TIME_SERIES, m=2, scale=4)
         self.assertEqual(res.shape, (4,))
         self.assertTrue(np.all(np.isfinite(res)))
         self.assertTrue(np.all(res > 0))
@@ -73,15 +73,17 @@ class TestRCMSE(unittest.TestCase):
         tol = 0.4 * np.std(series)  # wide enough that every pooled count is positive
         for sample_length in (1, 2, 3):
             expected = _brute_rcmse(series, sample_length, 3, tol)
-            np.testing.assert_allclose(ent.rcmse(series, sample_length, 3, tol), expected, rtol=1e-10)
+            np.testing.assert_allclose(
+                ent.rcmse(series, m=sample_length - 1, scale=3, tolerance=tol), expected, rtol=1e-10
+            )
 
     def test_rcmse_default_tolerance_uses_original_series(self):
         """Keep the default tolerance fixed at 0.1 * std of the original series."""
         local_rng = np.random.default_rng(11)
         series = local_rng.standard_normal(200)
         np.testing.assert_allclose(
-            ent.rcmse(series, 2, 3),
-            ent.rcmse(series, 2, 3, tolerance=0.1 * np.std(series)),
+            ent.rcmse(series, m=1, scale=3),
+            ent.rcmse(series, m=1, scale=3, tolerance=0.1 * np.std(series)),
         )
 
     def test_rcmse_short_series_resilience(self):
@@ -91,8 +93,8 @@ class TestRCMSE(unittest.TestCase):
         tol = 0.2 * np.std(ts)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            cmse_res = ent.composite_multiscale_entropy(ts, sample_length=3, scale=4, tolerance=tol)
-            rcmse_res = ent.rcmse(ts, sample_length=3, scale=4, tolerance=tol)
+            cmse_res = ent.composite_multiscale_entropy(ts, m=2, scale=4, tolerance=tol)
+            rcmse_res = ent.rcmse(ts, m=2, scale=4, tolerance=tol)
 
         # Standard CMSE produces NaN or Inf on this short series at scale 3 and 4
         self.assertTrue(not np.isfinite(cmse_res[2]) or np.isnan(cmse_res[2]))
@@ -105,23 +107,23 @@ class TestRCMSE(unittest.TestCase):
     def test_rcmse_zero_matches_warning(self):
         """Warn and return NaN when RCMSE finds no matches."""
         with self.assertWarns(RuntimeWarning):
-            res = ent.rcmse([1.0, 10.0, 100.0, 1000.0, 10000.0], sample_length=2, scale=1, tolerance=0.01)
+            res = ent.rcmse([1.0, 10.0, 100.0, 1000.0, 10000.0], m=1, scale=1, tolerance=0.01)
         self.assertEqual(res.shape, (1,))
         self.assertTrue(np.isnan(res[0]))
 
     def test_rcmse_scale_larger_than_series_gives_nan(self):
         """Return NaN with a warning once the coarse-grained series is too short."""
         with self.assertWarns(RuntimeWarning):
-            res = ent.rcmse(RANDOM_TIME_SERIES[:20], sample_length=3, scale=15)
+            res = ent.rcmse(RANDOM_TIME_SERIES[:20], m=2, scale=15)
         self.assertEqual(res.shape, (15,))
         self.assertTrue(np.isnan(res[-1]))
 
     def test_rcmse_input_types(self):
         """Accept lists, integer arrays and NumPy integer parameters."""
-        expected = ent.rcmse(np.array(TS_SAMPLE_ENTROPY, dtype=float), 2, 2)
-        np.testing.assert_allclose(ent.rcmse(TS_SAMPLE_ENTROPY, 2, 2), expected)
-        np.testing.assert_allclose(ent.rcmse(np.array(TS_SAMPLE_ENTROPY), 2, 2), expected)
-        np.testing.assert_allclose(ent.rcmse(TS_SAMPLE_ENTROPY, np.int64(2), np.int32(2)), expected)
+        expected = ent.rcmse(np.array(TS_SAMPLE_ENTROPY, dtype=float), m=1, scale=2)
+        np.testing.assert_allclose(ent.rcmse(TS_SAMPLE_ENTROPY, m=1, scale=2), expected)
+        np.testing.assert_allclose(ent.rcmse(np.array(TS_SAMPLE_ENTROPY), m=1, scale=2), expected)
+        np.testing.assert_allclose(ent.rcmse(TS_SAMPLE_ENTROPY, m=np.int64(1), scale=np.int32(2)), expected)
 
     def test_rcmse_alias(self):
         """Expose the descriptive alias for rcmse."""
@@ -129,40 +131,40 @@ class TestRCMSE(unittest.TestCase):
 
     def test_rcmse_invalid_values(self):
         """Reject out-of-range parameters, bad shapes and non-finite data with ValueError."""
-        self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, sample_length=2, scale=0)
-        self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, sample_length=2, scale=-1)
-        self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, sample_length=0, scale=2)
-        self.assertRaises(ValueError, ent.rcmse, [1, 2], sample_length=3, scale=1)
-        self.assertRaises(ValueError, ent.rcmse, np.zeros((3, 3)), sample_length=2, scale=1)
-        self.assertRaises(ValueError, ent.rcmse, [1.0, np.nan, 2.0, 3.0], sample_length=2, scale=1)
-        self.assertRaises(ValueError, ent.rcmse, [1.0, np.inf, 2.0, 3.0], sample_length=2, scale=1)
+        self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, m=1, scale=0)
+        self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, m=1, scale=-1)
+        self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, m=-1, scale=2)
+        self.assertRaises(ValueError, ent.rcmse, [1, 2], m=2, scale=1)
+        self.assertRaises(ValueError, ent.rcmse, np.zeros((3, 3)), m=1, scale=1)
+        self.assertRaises(ValueError, ent.rcmse, [1.0, np.nan, 2.0, 3.0], m=1, scale=1)
+        self.assertRaises(ValueError, ent.rcmse, [1.0, np.inf, 2.0, 3.0], m=1, scale=1)
         for bad_tolerance in (0, -0.1, float("nan")):
             with self.subTest(tolerance=bad_tolerance):
-                self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, sample_length=2, scale=1, tolerance=bad_tolerance)
+                self.assertRaises(ValueError, ent.rcmse, TIME_SERIES, m=1, scale=1, tolerance=bad_tolerance)
 
     def test_rcmse_invalid_types(self):
         """Reject non-integer scale and sample_length with TypeError."""
-        self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, sample_length=2, scale=True)
-        self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, sample_length=2, scale=2.0)
-        self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, sample_length=2.5, scale=1)
-        self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, sample_length=False, scale=1)
+        self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, m=1, scale=True)
+        self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, m=1, scale=2.0)
+        self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, m=1.5, scale=1)
+        self.assertRaises(TypeError, ent.rcmse, TIME_SERIES, m=False, scale=1)
 
 
 class TestMultiscaleValidation(unittest.TestCase):
     def test_multiscale_entropy_invalid_input(self):
         """Reject bad parameters and non-finite data in multiscale_entropy."""
-        self.assertRaises(ValueError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, 2, maxscale=0)
-        self.assertRaises(ValueError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, 2, tolerance=-1.0)
-        self.assertRaises(ValueError, ent.multiscale_entropy, [*TS_SAMPLE_ENTROPY, np.nan], 2, maxscale=2)
-        self.assertRaises(TypeError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, 2, maxscale=2.0)
-        self.assertRaises(TypeError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, 2.0, maxscale=2)
+        self.assertRaises(ValueError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, m=1, scale=0)
+        self.assertRaises(ValueError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, m=1, tolerance=-1.0)
+        self.assertRaises(ValueError, ent.multiscale_entropy, [*TS_SAMPLE_ENTROPY, np.nan], m=1, scale=2)
+        self.assertRaises(TypeError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, m=1, scale=2.0)
+        self.assertRaises(TypeError, ent.multiscale_entropy, TS_SAMPLE_ENTROPY, m=1.0, scale=2)
 
     def test_composite_multiscale_entropy_invalid_input(self):
         """Reject bad parameters and non-finite data in composite_multiscale_entropy."""
-        self.assertRaises(ValueError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, 2, 0)
-        self.assertRaises(ValueError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, 2, 2, -1.0)
-        self.assertRaises(ValueError, ent.composite_multiscale_entropy, [*TS_SAMPLE_ENTROPY, np.inf], 2, 2)
-        self.assertRaises(TypeError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, 2, 2.0)
+        self.assertRaises(ValueError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, m=1, scale=0)
+        self.assertRaises(ValueError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, m=1, scale=2, tolerance=-1.0)
+        self.assertRaises(ValueError, ent.composite_multiscale_entropy, [*TS_SAMPLE_ENTROPY, np.inf], m=1, scale=2)
+        self.assertRaises(TypeError, ent.composite_multiscale_entropy, TS_SAMPLE_ENTROPY, m=1, scale=2.0)
 
 
 class TestConstantSeries(unittest.TestCase):
@@ -179,29 +181,29 @@ class TestConstantSeries(unittest.TestCase):
         """Give the same result as any positive tolerance, with a zero last entry."""
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            default = ent.sample_entropy(self.CONSTANT, 3)
+            default = ent.sample_entropy(self.CONSTANT, m=2)
         for tol in (1e-9, 0.5, 100.0):
-            np.testing.assert_array_equal(default, ent.sample_entropy(self.CONSTANT, 3, tol))
+            np.testing.assert_array_equal(default, ent.sample_entropy(self.CONSTANT, m=2, tolerance=tol))
         self._assert_positive_zeros(default[1:])
 
     def test_multiscale_functions_return_zero(self):
         """Return +0.0 at every scale for MSE, CMSE and RCMSE, without warnings."""
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            self._assert_positive_zeros(ent.multiscale_entropy(self.CONSTANT, 3, maxscale=3))
-            self._assert_positive_zeros(ent.composite_multiscale_entropy(self.CONSTANT, 3, 3))
-            self._assert_positive_zeros(ent.rcmse(self.CONSTANT, 3, 3))
+            self._assert_positive_zeros(ent.multiscale_entropy(self.CONSTANT, m=2, scale=3))
+            self._assert_positive_zeros(ent.composite_multiscale_entropy(self.CONSTANT, m=2, scale=3))
+            self._assert_positive_zeros(ent.rcmse(self.CONSTANT, m=2, scale=3))
 
     def test_float_constant_series(self):
         """Treat a constant series of non-representable floats the same way."""
-        self._assert_positive_zeros(ent.rcmse(np.full(60, 0.1), 2, 2))
+        self._assert_positive_zeros(ent.rcmse(np.full(60, 0.1), m=1, scale=2))
 
 
 class TestMultiscaleDefaults(unittest.TestCase):
     def test_default_maxscale_is_twenty(self):
         """Compute scales 1 to 20 by default, and treat None as 20."""
         x = RANDOM_TIME_SERIES[:600]
-        default = ent.multiscale_entropy(x, 2)
+        default = ent.multiscale_entropy(x, m=1)
         self.assertEqual(default.shape, (20,))
-        np.testing.assert_array_equal(default, ent.multiscale_entropy(x, 2, maxscale=None))
-        np.testing.assert_array_equal(default[:5], ent.multiscale_entropy(x, 2, maxscale=5))
+        np.testing.assert_array_equal(default, ent.multiscale_entropy(x, m=1, scale=None))
+        np.testing.assert_array_equal(default[:5], ent.multiscale_entropy(x, m=1, scale=5))

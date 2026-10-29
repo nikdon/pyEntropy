@@ -1,11 +1,9 @@
 """Fuzzy entropy."""
 
-import warnings
-
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-from ._validation import _check_integer, _resolve_tolerance, _validate_series
+from ._validation import _check_integer, _renamed, _resolve_tolerance, _validate_series, _warn
 
 
 def _prepare_centered_T(x, order, n_vectors, inv_tol):
@@ -114,7 +112,8 @@ def _compute_phi(cent_T, exponent, chunk_size=32):
     return total / n_pairs
 
 
-def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
+@_renamed(sample_length="m", n="exponent")
+def fuzzy_entropy(time_series, m=2, tolerance=None, exponent=2):
     """Calculate Fuzzy Entropy (FuzzyEn) using exponential membership function.
 
     Fuzzy entropy characterizes the regularity of a time series by replacing
@@ -125,35 +124,36 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
     ----------
     time_series : np.ndarray or list
         Input time series for analysis, 1-d vector of finite values.
-    sample_length : int, optional
-        Embedding dimension (length of template vector m). Defaults to 2.
+    m : int, default=2
+        Embedding dimension: templates of length m are compared with templates of
+        length m + 1 (formerly ``sample_length``, with the same meaning).
     tolerance : float, optional
         Positive radius r in the same units as the time series, used in
-        exp(-(d / r)**n), where d is the Chebyshev distance between centered
+        exp(-(d / r)**exponent), where d is the Chebyshev distance between centered
         templates. This is the form of Chen et al. (2007), without the ln(2)
         scaling used in some later papers. Defaults to 0.2 * std(time_series),
         unlike sample_entropy and the multiscale functions, which default to
         0.1 * std(time_series).
-    n : int or float, optional
-        Weight of the fuzzy boundary (power of the exponential function).
-        Defaults to 2.
+    exponent : int or float, default=2
+        Weight of the fuzzy boundary, the power in the membership function
+        (formerly ``n``).
 
     Returns
     -------
     fuzzyen : float
         Negative natural logarithm of the ratio of mean similarities for
-        lengths sample_length + 1 and sample_length, in nats. Self-matches
+        lengths m + 1 and m, in nats. Self-matches
         are excluded. Returns 0.0 for a constant series (with the default
         tolerance) and NaN if either mean similarity vanishes to zero.
 
     Raises
     ------
     TypeError
-        If sample_length is not an integer (booleans excluded).
+        If m is not an integer (booleans excluded).
     ValueError
-        If sample_length < 1, n <= 0, an explicitly supplied tolerance is not
+        If m < 1, exponent <= 0, an explicitly supplied tolerance is not
         greater than 0, time_series is not 1D or contains non-finite values,
-        or time_series is shorter than sample_length + 2.
+        or time_series is shorter than m + 2.
 
     Warns
     -----
@@ -167,32 +167,27 @@ def fuzzy_entropy(time_series, sample_length=2, tolerance=None, n=2):
 
     """
     time_series = _validate_series(time_series)
-    _check_integer("sample_length", sample_length, 1)
+    _check_integer("m", m, 1)
 
-    if not n > 0:
-        raise ValueError("n must be greater than 0.")
+    if not exponent > 0:
+        raise ValueError("exponent must be greater than 0.")
 
-    if len(time_series) < sample_length + 2:
-        raise ValueError(
-            f"Time series length ({len(time_series)}) must be at least sample_length + 2 ({sample_length + 2})."
-        )
+    if len(time_series) < m + 2:
+        raise ValueError(f"Time series length ({len(time_series)}) must be at least m + 2 ({m + 2}).")
 
     tolerance = _resolve_tolerance(time_series, tolerance, 0.2)
 
     # both lengths use the same number of vectors (the first n_vectors windows)
-    n_vectors = len(time_series) - sample_length
+    n_vectors = len(time_series) - m
     inv_tol = 1.0 / tolerance
 
-    cent_m = _prepare_centered_T(time_series, sample_length, n_vectors, inv_tol)
-    cent_m1 = _prepare_centered_T(time_series, sample_length + 1, n_vectors, inv_tol)
-    phi_m = _compute_phi(cent_m, n)
-    phi_m1 = _compute_phi(cent_m1, n)
+    phi_m = _compute_phi(_prepare_centered_T(time_series, m, n_vectors, inv_tol), exponent)
+    phi_m1 = _compute_phi(_prepare_centered_T(time_series, m + 1, n_vectors, inv_tol), exponent)
 
     if phi_m1 == 0 or phi_m == 0:
-        warnings.warn(
+        _warn(
             "Fuzzy similarity degrees vanished to zero. Returning NaN.",
             RuntimeWarning,
-            stacklevel=2,
         )
         return float(np.nan)
 

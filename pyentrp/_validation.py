@@ -1,6 +1,21 @@
 """Input checks shared by all entropy measures."""
 
+import functools
+import os
+import sys
+import warnings
+
 import numpy as np
+
+_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__)) + os.sep
+
+
+def _warn(message, category):
+    """Issue a warning attributed to the first caller outside pyentrp, however deep the call."""
+    frame, level = sys._getframe(0), 1
+    while frame is not None and frame.f_code.co_filename.startswith(_PACKAGE_DIR):
+        frame, level = frame.f_back, level + 1
+    warnings.warn(message, category, stacklevel=level)
 
 
 def _check_integer(name, value, minimum, maximum=None):
@@ -102,3 +117,56 @@ def _check_embedding_length(time_series, order, delay):
         raise ValueError(
             f"Time series length ({len(time_series)}) must be at least (order - 1) * delay + 1 ({min_length})."
         )
+
+
+def _renamed(**old_to_new):
+    """Accept deprecated keyword names: ``@_renamed(old="new")`` maps ``old=`` to ``new=`` with a warning.
+
+    Positional arguments are unaffected. Passing both names raises TypeError.
+
+    """
+
+    def decorate(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for old, new in old_to_new.items():
+                if old in kwargs:
+                    if new in kwargs:
+                        raise TypeError(f"{func.__name__}() got both {old!r} and {new!r}; pass only {new!r}.")
+                    _warn(
+                        f"{func.__name__}(): {old!r} is deprecated and will be removed in pyentrp 4.0; use {new!r}.",
+                        DeprecationWarning,
+                    )
+                    kwargs[new] = kwargs.pop(old)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorate
+
+
+def _template_length(sample_length, m):
+    """Return the longest template length, m + 1, from `m` or from the deprecated `sample_length`.
+
+    Raises
+    ------
+    TypeError
+        If both or neither are given, or the given one is not an integer.
+    ValueError
+        If m < 0 or sample_length < 1.
+
+    """
+    if m is not None:
+        if sample_length is not None:
+            raise TypeError("pass only m; sample_length is the deprecated m + 1.")
+        _check_integer("m", m, 0)
+        return m + 1
+    if sample_length is None:
+        raise TypeError("missing required argument 'm'.")
+    _check_integer("sample_length", sample_length, 1)
+    _warn(
+        f"sample_length is deprecated and will be removed in pyentrp 4.0; "
+        f"use m=sample_length - 1 (sample_length={sample_length} is m={sample_length - 1}).",
+        DeprecationWarning,
+    )
+    return sample_length

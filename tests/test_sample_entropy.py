@@ -12,7 +12,7 @@ class TestEntropy(unittest.TestCase):
         """Calculate sample entropy for deterministic input."""
         ts = TS_SAMPLE_ENTROPY
         std_ts = np.std(ts)
-        sample_entropy = ent.sample_entropy(ts, 4, 0.2 * std_ts)
+        sample_entropy = ent.sample_entropy(ts, m=3, tolerance=0.2 * std_ts)
         np.testing.assert_allclose(sample_entropy, np.array([2.26881823, 2.11119024, 2.33537492, 1.79175947]))
 
 
@@ -47,14 +47,14 @@ class TestSampleEntropyValidation(unittest.TestCase):
     def test_invalid_values(self):
         """Reject bad lengths, tolerances and non-finite data with ValueError."""
         ts = TS_SAMPLE_ENTROPY
-        self.assertRaises(ValueError, ent.sample_entropy, ts, 0)
-        self.assertRaises(ValueError, ent.sample_entropy, ts, 2, -1.0)
-        self.assertRaises(ValueError, ent.sample_entropy, ts, 2, 0.0)
-        self.assertRaises(ValueError, ent.sample_entropy, ts, 2, np.nan)
-        self.assertRaises(ValueError, ent.sample_entropy, [*ts, np.nan], 2)
-        self.assertRaises(ValueError, ent.sample_entropy, np.ones((5, 5)), 2)
+        self.assertRaises(ValueError, ent.sample_entropy, ts, m=-1)
+        self.assertRaises(ValueError, ent.sample_entropy, ts, m=1, tolerance=-1.0)
+        self.assertRaises(ValueError, ent.sample_entropy, ts, m=1, tolerance=0.0)
+        self.assertRaises(ValueError, ent.sample_entropy, ts, m=1, tolerance=np.nan)
+        self.assertRaises(ValueError, ent.sample_entropy, [*ts, np.nan], m=1)
+        self.assertRaises(ValueError, ent.sample_entropy, np.ones((5, 5)), m=1)
 
     def test_invalid_types(self):
         """Reject a non-integer sample_length with TypeError."""
-        self.assertRaises(TypeError, ent.sample_entropy, TS_SAMPLE_ENTROPY, 2.0)
-        self.assertRaises(TypeError, ent.sample_entropy, TS_SAMPLE_ENTROPY, True)
+        self.assertRaises(TypeError, ent.sample_entropy, TS_SAMPLE_ENTROPY, m=1.0)
+        self.assertRaises(TypeError, ent.sample_entropy, TS_SAMPLE_ENTROPY, m=True)

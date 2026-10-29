@@ -1,11 +1,9 @@
 """Sample entropy and its multiscale variants (MSE, CMSE, RCMSE)."""
 
-import warnings
-
 import numpy as np
 
 from ._core import _granulate
-from ._validation import _check_integer, _resolve_tolerance, _validate_series
+from ._validation import _check_integer, _renamed, _resolve_tolerance, _template_length, _validate_series, _warn
 
 
 def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32):
@@ -81,43 +79,41 @@ def _count_template_matches(time_series, sample_length, tolerance, chunk_size=32
     return N_temp
 
 
-def sample_entropy(time_series, sample_length, tolerance=None):
-    """Calculate the sample entropy of degree m of a time_series.
-
-    This method uses Chebyshev norm.
-    It is quite fast for random data but can be slower is there is
-    structure in the input time series.
+def sample_entropy(time_series, sample_length=None, tolerance=None, *, m=None):
+    """Calculate the sample entropy SampEn(m, r) of a time series, using the Chebyshev distance.
 
     Parameters
     ----------
-    time_series : np.ndarray
-        Time series, 1-d vector
-    sample_length : int
-        length of longest template vector
+    time_series : np.ndarray | list
+        1D series of finite values.
+    sample_length : int, optional
+        Deprecated; use ``m = sample_length - 1``. Longest template length, m + 1.
     tolerance : float, optional
-        Strict upper bound on the Chebyshev distance between templates,
-        in the same units as the time series. Defaults to 0.1 * std(time_series);
-        for a constant series any positive tolerance gives the same result, which
-        is used instead of 0. The multiscale functions share this default, while
-        fuzzy_entropy uses 0.2 * std. Pass tolerance=0.2 * np.std(x) for the
-        common r = 0.2 SD.
+        The radius r: strict upper bound on the Chebyshev distance between templates,
+        in the units of the series. Defaults to 0.1 * std(time_series) (population std);
+        for a constant series any positive tolerance gives the same result, which is
+        used instead of 0. Pass tolerance=0.2 * np.std(x) for the common r = 0.2 SD.
+    m : int
+        Keyword-only. Embedding dimension: templates of length m are compared with
+        templates of length m + 1 (m >= 0). Required unless sample_length is given.
 
     Returns
     -------
-    sampen: np.ndarray
-        Array of length sample_length in nats. SE[k] is -log(N[k+1] / N[k]),
-        where N[k] counts matching pairs of length-k prefixes of full
-        sample_length windows, excluding self-matches, and
+    sampen : np.ndarray
+        Array of length m + 1 in nats; the last entry is SampEn(m, r). SE[k] is
+        -log(N[k+1] / N[k]), where N[k] counts matching pairs of length-k prefixes
+        of full (m + 1)-sample windows, excluding self-matches, and
         N[0] = n * (n - 1) / 2 for a series of length n. A zero numerator
         with a positive denominator yields inf; two zero counts yield NaN.
 
     Raises
     ------
     TypeError
-        If sample_length is not an integer (booleans excluded).
+        If m is not an integer (booleans excluded), or both or neither of m and
+        sample_length are given.
     ValueError
-        If sample_length < 1, time_series is not 1D or contains non-finite
-        values, or an explicitly supplied tolerance is not greater than 0.
+        If m < 0, time_series is not 1D or contains non-finite values, or an
+        explicitly supplied tolerance is not greater than 0.
 
     Warns
     -----
@@ -126,7 +122,7 @@ def sample_entropy(time_series, sample_length, tolerance=None):
 
     Notes
     -----
-    The parameter 'sample_length' is equal to m + 1 in Ref [1]. Counting follows the
+    Counting follows the
     PhysioNet sampen implementation [2]: the strict test d < tolerance and N[0] = n(n - 1) / 2.
 
     References
@@ -138,57 +134,61 @@ def sample_entropy(time_series, sample_length, tolerance=None):
            https://physionet.org/content/sampen/1.0.0/
 
     """
+    length = _template_length(sample_length, m)
     time_series = _validate_series(time_series)
-    _check_integer("sample_length", sample_length, 1)
-
     tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
+    return _sampen(time_series, length, tolerance)
 
-    return _sampen(time_series, sample_length, tolerance)
 
-
-def _sampen(x, sample_length, tolerance):
-    """Return SE[k] = log(N[k] / N[k + 1]) for k = 0 .. sample_length - 1 (written so it never gives -0.0)."""
-    counts = _count_template_matches(x, sample_length, tolerance)
+def _sampen(x, length, tolerance):
+    """Return SE[k] = log(N[k] / N[k + 1]) for k = 0 .. length - 1 (written so it never gives -0.0)."""
+    counts = _count_template_matches(x, length, tolerance)
     return np.log(counts[:-1] / counts[1:])
 
 
-def _sampen_last(x, sample_length, tolerance):
-    """Return only SE[sample_length - 1], the sample entropy for m = sample_length - 1."""
-    counts = _count_template_matches(x, sample_length, tolerance)
+def _sampen_last(x, length, tolerance):
+    """Return only SE[length - 1], the sample entropy for m = length - 1."""
+    counts = _count_template_matches(x, length, tolerance)
     return np.log(counts[-2] / counts[-1])
 
 
-def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=20):
-    """Calculate Multiscale Entropy considering different time-scales of the time series.
+@_renamed(maxscale="scale")
+def multiscale_entropy(time_series, sample_length=None, tolerance=None, scale=20, *, m=None):
+    """Calculate Multiscale Entropy: SampEn(m, r) of the coarse-grained series at scales 1 .. scale.
 
     Parameters
     ----------
-    time_series : np.ndarray
-        Input time series for analysis.
-    sample_length : int
-        Bandwidth or group of points
-    tolerance : float
-        Tolerance value (default is 0.1 times the standard deviation of the `time_series`;
-        a constant series is treated as in `sample_entropy`)
-    maxscale : int, default=20
-        Maximum scale, inclusive. The default is the range of scales used by
-        Costa et al. (2002). None is accepted as an alias for 20. A scale whose
-        coarse-grained series is too short for matching pairs gives NaN or inf,
-        with a RuntimeWarning.
+    time_series : np.ndarray | list
+        1D series of finite values.
+    sample_length : int, optional
+        Deprecated; use ``m = sample_length - 1``. Longest template length, m + 1.
+    tolerance : float, optional
+        Strict upper bound on the Chebyshev distance between templates, in the
+        units of the series. Defaults to 0.1 * std(time_series) (population std),
+        computed on the original series and fixed across scales; for a constant
+        series any positive tolerance gives the same result, which is used instead of 0.
+    scale : int, default=20
+        Maximum scale, inclusive (formerly ``maxscale``). The default is the range of
+        scales used by Costa et al. (2002). None is accepted as an alias for 20. A
+        scale whose coarse-grained series is too short for matching pairs gives NaN
+        or inf, with a RuntimeWarning.
+    m : int
+        Keyword-only. Embedding dimension: templates of length m are compared with
+        templates of length m + 1 (m >= 0). Required unless sample_length is given.
 
     Returns
     -------
     mse : np.ndarray
-        Array of Multiscale Entropies
+        Array of length scale in nats; index i corresponds to scale i + 1.
 
     Raises
     ------
     TypeError
-        If sample_length or maxscale is not an integer (booleans excluded).
+        If m or scale is not an integer (booleans excluded), or both or neither
+        of m and sample_length are given.
     ValueError
-        If sample_length or maxscale is below 1, time_series is not 1D or
-        contains non-finite values, or an explicitly supplied tolerance is
-        not greater than 0.
+        If m < 0, scale < 1, time_series is not 1D or contains non-finite values,
+        or an explicitly supplied tolerance is not greater than 0.
 
     References
     ----------
@@ -196,48 +196,49 @@ def multiscale_entropy(time_series, sample_length, tolerance=None, maxscale=20):
            complex physiologic time series. Physical Review Letters, 89(6), 068102.
 
     """
+    length = _template_length(sample_length, m)
     time_series = _validate_series(time_series)
-    _check_integer("sample_length", sample_length, 1)
-
     tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
+    if scale is None:
+        scale = 20
+    _check_integer("scale", scale, 1)
 
-    if maxscale is None:
-        maxscale = 20
-    _check_integer("maxscale", maxscale, 1)
-
-    return np.array(
-        [_sampen_last(_granulate(time_series, k), sample_length, tolerance) for k in range(1, maxscale + 1)]
-    )
+    return np.array([_sampen_last(_granulate(time_series, k), length, tolerance) for k in range(1, scale + 1)])
 
 
-def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=None):
-    """Calculate Composite Multiscale Entropy.
+def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
+    """Calculate Composite Multiscale Entropy: at each scale, average SampEn(m, r) over all shifted coarse series.
 
     Parameters
     ----------
-    time_series : np.ndarray
-        Time series for analysis
-    sample_length : int
-        Number of sequential points of the time series
-    scale : int
-        Scale factor
-    tolerance : float
-        Tolerance (default = 0.1 * std(time_series); a constant series is treated
-        as in `sample_entropy`)
+    time_series : np.ndarray | list
+        1D series of finite values.
+    sample_length : int, optional
+        Deprecated; use ``m = sample_length - 1``. Longest template length, m + 1.
+    scale : int, default=20
+        Maximum scale, inclusive.
+    tolerance : float, optional
+        Strict upper bound on the Chebyshev distance between templates, in the
+        units of the series. Defaults to 0.1 * std(time_series) (population std),
+        computed on the original series and fixed across scales; for a constant
+        series any positive tolerance gives the same result, which is used instead of 0.
+    m : int
+        Keyword-only. Embedding dimension: templates of length m are compared with
+        templates of length m + 1 (m >= 0). Required unless sample_length is given.
 
     Returns
     -------
     cmse : np.ndarray
-        Array of Composite Multiscale Entropies
+        Array of length scale in nats; index i corresponds to scale i + 1.
 
     Raises
     ------
     TypeError
-        If sample_length or scale is not an integer (booleans excluded).
+        If m or scale is not an integer (booleans excluded), or both or neither
+        of m and sample_length are given.
     ValueError
-        If sample_length or scale is below 1, time_series is not 1D or
-        contains non-finite values, or an explicitly supplied tolerance is
-        not greater than 0.
+        If m < 0, scale < 1, time_series is not 1D or contains non-finite values,
+        or an explicitly supplied tolerance is not greater than 0.
 
     References
     ----------
@@ -245,21 +246,20 @@ def composite_multiscale_entropy(time_series, sample_length, scale, tolerance=No
         composite multiscale entropy." Entropy 15.3 (2013): 1069-1084.
 
     """
+    length = _template_length(sample_length, m)
     time_series = _validate_series(time_series)
-    _check_integer("sample_length", sample_length, 1)
     _check_integer("scale", scale, 1)
-
     tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
 
     cmse = np.zeros(scale)
     for i in range(scale):
         k = i + 1
         for j in range(k):
-            cmse[i] += _sampen_last(_granulate(time_series[j:], k), sample_length, tolerance) / k
+            cmse[i] += _sampen_last(_granulate(time_series[j:], k), length, tolerance) / k
     return cmse
 
 
-def rcmse(time_series, sample_length, scale, tolerance=None):
+def rcmse(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
     """Calculate Refined Composite Multiscale Entropy (RCMSE).
 
     At each scale, pool template matches across all shifted series formed by
@@ -268,17 +268,19 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
     Parameters
     ----------
     time_series : np.ndarray | list
-        Time series for analysis, 1-d vector of finite values.
-    sample_length : int
-        Longest template length. Compare matches of this length with matches
-        of length sample_length - 1, as in sample_entropy.
-    scale : int
+        1D series of finite values.
+    sample_length : int, optional
+        Deprecated; use ``m = sample_length - 1``. Longest template length, m + 1.
+    scale : int, default=20
         Maximum scale, inclusive. Each scale is a block length in samples.
     tolerance : float, optional
-        Strict upper bound on the Chebyshev distance between templates,
-        in the same units as the time series. Defaults to 0.1 * std(time_series)
-        from the original series and remains fixed across scales. For a constant
+        Strict upper bound on the Chebyshev distance between templates, in the
+        units of the series. Defaults to 0.1 * std(time_series) (population std),
+        computed on the original series and fixed across scales; for a constant
         series any positive tolerance gives the same result, which is used instead of 0.
+    m : int
+        Keyword-only. Embedding dimension: templates of length m are compared with
+        templates of length m + 1 (m >= 0). Required unless sample_length is given.
 
     Returns
     -------
@@ -291,11 +293,12 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
     Raises
     ------
     TypeError
-        If scale or sample_length is not an integer (booleans excluded).
+        If m or scale is not an integer (booleans excluded), or both or neither
+        of m and sample_length are given.
     ValueError
-        If scale < 1, sample_length < 1, time_series is not 1D or contains
-        non-finite values, time_series is shorter than sample_length + 1,
-        or an explicitly supplied tolerance is not greater than 0.
+        If m < 0, scale < 1, time_series is not 1D or contains non-finite values,
+        time_series is shorter than m + 2, or an explicitly supplied tolerance
+        is not greater than 0.
 
     Warns
     -----
@@ -308,32 +311,29 @@ def rcmse(time_series, sample_length, scale, tolerance=None):
            for time series complexity analysis." IEEE Signal Processing Letters (2014).
 
     """
+    length = _template_length(sample_length, m)
     time_series = _validate_series(time_series)
     _check_integer("scale", scale, 1)
-    _check_integer("sample_length", sample_length, 1)
 
-    if len(time_series) < sample_length + 1:
-        raise ValueError(
-            f"Time series length ({len(time_series)}) must be at least sample_length + 1 ({sample_length + 1})."
-        )
+    if len(time_series) < length + 1:
+        raise ValueError(f"Time series length ({len(time_series)}) must be at least m + 2 ({length + 1}).")
 
     tolerance = _resolve_tolerance(time_series, tolerance, 0.1)
 
     rcmse_values = np.zeros(scale)
 
     for i in range(scale):
-        total_matches = np.zeros(sample_length + 1)
+        total_matches = np.zeros(length + 1)
         for j in range(i + 1):
-            total_matches += _count_template_matches(_granulate(time_series[j:], i + 1), sample_length, tolerance)
+            total_matches += _count_template_matches(_granulate(time_series[j:], i + 1), length, tolerance)
 
-        n_m_plus_1 = total_matches[sample_length]
-        n_m = total_matches[sample_length - 1]
+        n_m_plus_1 = total_matches[length]
+        n_m = total_matches[length - 1]
 
         if n_m_plus_1 == 0 or n_m == 0:
-            warnings.warn(
+            _warn(
                 f"No template matches found at scale {i + 1}. Returning NaN.",
                 RuntimeWarning,
-                stacklevel=2,
             )
             rcmse_values[i] = np.nan
         else:

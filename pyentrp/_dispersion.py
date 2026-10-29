@@ -171,8 +171,9 @@ def dispersion_entropy(  # noqa: PLR0913
     if z is None:
         return 0.0
 
-    n_patterns = int(classes) ** int(order)  # a Python int, so it cannot overflow
-    if n_patterns <= _BINCOUNT_MAX_PATTERNS:
+    # compare logs first: classes ** order can be an enormous integer
+    if order * math.log(classes) <= math.log(_BINCOUNT_MAX_PATTERNS):
+        n_patterns = int(classes) ** int(order)
         # encode each pattern as a base-`classes` integer
         n_win = len(z) - (order - 1) * delay
         z = z - 1  # labels 0 .. classes - 1
@@ -184,7 +185,7 @@ def dispersion_entropy(  # noqa: PLR0913
         counts = _count_ids(ids, n_patterns)
     else:
         # count identical rows; no integer encoding, which could overflow int64
-        patterns = time_delay_embedding(z, embedding_dimension=order, delay=delay)
+        patterns = time_delay_embedding(z, order, delay)
         _, counts = np.unique(patterns, axis=0, return_counts=True)
 
     de = _entropy_bits(counts)

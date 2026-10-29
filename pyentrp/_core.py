@@ -5,21 +5,22 @@ from collections import Counter
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-from ._validation import _check_embedding_length, _check_integer, _validate_series
+from ._validation import _check_embedding_length, _check_integer, _renamed, _validate_series, _warn
 
 # largest pattern space (order! or classes ** order) counted with np.bincount; larger spaces use np.unique.
 _BINCOUNT_MAX_PATTERNS = 1_000_000
 
 
-def time_delay_embedding(time_series, embedding_dimension, delay):
+@_renamed(embedding_dimension="order")
+def time_delay_embedding(time_series, order, delay):
     """Calculate time-delayed embedding.
 
     Parameters
     ----------
     time_series : np.ndarray
         The input time series, shape (n_times)
-    embedding_dimension : int
-        The embedding dimension (order).
+    order : int
+        The embedding dimension (formerly ``embedding_dimension``).
     delay : int
         The delay between embedded points.
 
@@ -33,14 +34,14 @@ def time_delay_embedding(time_series, embedding_dimension, delay):
     Raises
     ------
     TypeError
-        If embedding_dimension or delay is not an integer (booleans excluded).
+        If order or delay is not an integer (booleans excluded).
     ValueError
-        If embedding_dimension or delay is below 1, or the series is too short.
+        If order or delay is below 1, or the series is too short.
 
     """
-    _check_integer("embedding_dimension", embedding_dimension, 1)
+    _check_integer("order", order, 1)
     _check_integer("delay", delay, 1)
-    window = (embedding_dimension - 1) * delay + 1
+    window = (order - 1) * delay + 1
     view = sliding_window_view(time_series, window_shape=window)
     return view[:, ::delay] if delay > 1 else view
 
@@ -48,7 +49,8 @@ def time_delay_embedding(time_series, embedding_dimension, delay):
 def util_pattern_space(time_series, lag, dim):
     """Create a set of sequences with a given lag and dimension.
 
-    Same as ``time_delay_embedding(time_series, dim, lag)``, returned as a writable float copy.
+    Deprecated, will be removed in pyentrp 4.0: use ``time_delay_embedding(time_series, dim, lag).copy()``
+    on a float array, which gives the same result.
 
     Parameters
     ----------
@@ -72,7 +74,17 @@ def util_pattern_space(time_series, lag, dim):
         If lag or dim is below 1, time_series is not 1D or contains non-finite
         values, or has fewer than lag * (dim - 1) + 1 samples.
 
+    Warns
+    -----
+    DeprecationWarning
+        Always.
+
     """
+    _warn(
+        "util_pattern_space is deprecated and will be removed in pyentrp 4.0; "
+        "use time_delay_embedding(time_series, dim, lag).copy().",
+        DeprecationWarning,
+    )
     time_series = _validate_series(time_series)
     _check_integer("lag", lag, 1)
     _check_integer("dim", dim, 1)

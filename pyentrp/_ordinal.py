@@ -1,12 +1,11 @@
 """Permutation entropy and its weighted and multiscale variants."""
 
 import math
-import warnings
 
 import numpy as np
 
 from ._core import _count_ids, _entropy_bits, _granulate
-from ._validation import _check_embedding_length, _check_integer, _validate_series
+from ._validation import _check_embedding_length, _check_integer, _renamed, _validate_series, _warn
 
 # largest permutation order: pattern ids go up to order! - 1, and 20! - 1 is the last that fits in int64.
 _MAX_PERMUTATION_ORDER = 20
@@ -203,34 +202,35 @@ def _permutation_entropy(x, order, delay):
     return _entropy_bits(_count_ids(_motif_lehmer_ids(x, order, delay), math.factorial(order)))
 
 
-def multiscale_permutation_entropy(time_series, m, delay, scale):
-    """Calculate the Multiscale Permutation Entropy.
+@_renamed(m="order")
+def multiscale_permutation_entropy(time_series, order, delay, scale):
+    """Calculate the Multiscale Permutation Entropy: permutation entropy at scales 1 .. scale.
 
     Parameters
     ----------
-    time_series : np.ndarray
-        Time series for analysis
-    m : int
-        Order of permutation entropy
+    time_series : np.ndarray | list
+        1D series of finite values.
+    order : int
+        Order of permutation entropy (formerly ``m``).
     delay : int
-        Time delay
+        Time delay.
     scale : int
-        Scale factor
+        Maximum scale, inclusive.
 
     Returns
     -------
     mspe : np.ndarray
-        Array of length scale; index i corresponds to scale i + 1. An entry is
-        NaN when the coarse-grained series at that scale has fewer than
-        (m - 1) * delay + 1 samples.
+        Array of length scale in bits; index i corresponds to scale i + 1. An entry
+        is NaN when the coarse-grained series at that scale has fewer than
+        (order - 1) * delay + 1 samples.
 
     Raises
     ------
     TypeError
-        If m, delay, or scale is not an integer (booleans excluded).
+        If order, delay, or scale is not an integer (booleans excluded).
     ValueError
-        If m, delay, or scale is below 1, m is above 20, or time_series is not
-        1D or contains non-finite values.
+        If order, delay, or scale is below 1, order is above 20, or time_series
+        is not 1D or contains non-finite values.
 
     Warns
     -----
@@ -246,25 +246,24 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
 
     """
     time_series = _validate_series(time_series, keep_integer=True)
-    _check_integer("m", m, 1, _MAX_PERMUTATION_ORDER)
+    _check_integer("order", order, 1, _MAX_PERMUTATION_ORDER)
     _check_integer("delay", delay, 1)
     _check_integer("scale", scale, 1)
 
-    min_length = (m - 1) * delay + 1
+    min_length = (order - 1) * delay + 1
     mspe = np.full(scale, np.nan)
     for i in range(scale):
         # scale 1 is the series itself; averaging would turn integers into floats and could merge them
         coarse_time_series = time_series if i == 0 else _granulate(time_series, i + 1)
         if len(coarse_time_series) < min_length:
             # coarse series only get shorter with scale, so every remaining scale is too short
-            warnings.warn(
-                f"Coarse-grained series is shorter than (m - 1) * delay + 1 ({min_length}) "
+            _warn(
+                f"Coarse-grained series is shorter than (order - 1) * delay + 1 ({min_length}) "
                 f"from scale {i + 1} on. Returning NaN for those scales.",
                 RuntimeWarning,
-                stacklevel=2,
             )
             break
-        mspe[i] = _permutation_entropy(coarse_time_series, m, delay)
+        mspe[i] = _permutation_entropy(coarse_time_series, order, delay)
     return mspe
 
 

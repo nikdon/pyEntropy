@@ -38,7 +38,7 @@ sine = np.sin(2 * np.pi * t / 50)
 
 for name, x in [("white noise", noise), ("sine wave", sine)]:
     r = 0.2 * np.std(x)  # tolerance, in signal units
-    sampen = ent.sample_entropy(x, sample_length=3, tolerance=r)[-1]  # m = 2
+    sampen = ent.sample_entropy(x, m=2, tolerance=r)[-1]
     permen = ent.permutation_entropy(x, order=3, normalize=True)
     print(f"{name:12s} SampEn={sampen:.3f}  PermEn={permen:.3f}")
 ```
@@ -51,7 +51,7 @@ sine wave    SampEn=0.248  PermEn=0.491
 Lower values mean a more regular signal. Multiscale entropy returns one value per scale:
 
 ```python
-mse = ent.multiscale_entropy(noise, sample_length=3, tolerance=0.2 * np.std(noise), maxscale=5)
+mse = ent.multiscale_entropy(noise, m=2, tolerance=0.2 * np.std(noise), scale=5)
 for scale, value in enumerate(mse, start=1):
     print(f"scale {scale}: {value:.3f}")
 ```
@@ -81,15 +81,29 @@ scale 5: 1.502
 
 ## Parameters
 
-- For sample entropy and its multiscale variants, `sample_length` equals m + 1.
-  `sample_entropy(x, 3)` returns SampEn for m = 0, 1, 2, so `[-1]` is m = 2.
-  For `fuzzy_entropy`, `sample_length` is the embedding dimension m directly.
-- `tolerance` is absolute, in the units of your signal. Default: `0.1 * std(x)` for sample, multiscale and refined
-  composite entropy; `0.2 * std(x)` for fuzzy entropy. For the common r = 0.2 SD pass `tolerance=0.2 * np.std(x)`.
-- `multiscale_entropy` computes scales 1 to `maxscale` (default 20, as in Costa et al. 2002).
-- Permutation entropy orders go up to 20.
-- Fuzzy entropy uses the membership function `exp(-(d / r)**n)` [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025).
+- `m` is the embedding dimension for sample, multiscale and fuzzy entropy: templates of length m are compared with
+  templates of length m + 1. `sample_entropy(x, m=2)` returns SampEn for m = 0, 1, 2, so `[-1]` is m = 2.
+- `order` is the pattern length for permutation, weighted permutation, dispersion entropy and `time_delay_embedding`.
+  Permutation entropy orders go up to 20.
+- `tolerance` is absolute, in the units of your signal. Default: `0.1 * std(x)` (population std) for sample entropy
+  and its multiscale variants; `0.2 * std(x)` for fuzzy entropy. For the common r = 0.2 SD pass
+  `tolerance=0.2 * np.std(x)`.
+- `scale` is the largest scale of the multiscale functions; MSE, CMSE and RCMSE default to 20, as in Costa et al. (2002).
+- Fuzzy entropy uses the membership function `exp(-(d / r)**exponent)` [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025).
 - Ties in permutation entropy are ranked by position (stable ordering).
+
+### Migrating from 2.x
+
+The old names still work in 3.x with a `DeprecationWarning` and will be removed in 4.0.
+
+| Function | 2.x | 3.x |
+|---|---|---|
+| `sample_entropy`, `multiscale_entropy`, `composite_multiscale_entropy`, `rcmse` | `sample_length=3` (or positional `3`) | `m=2` (`m = sample_length - 1`) |
+| `multiscale_entropy` | `maxscale=` | `scale=` |
+| `fuzzy_entropy` | `sample_length=`, `n=` | `m=`, `exponent=` (same values) |
+| `multiscale_permutation_entropy` | `m=` | `order=` (same value) |
+| `time_delay_embedding` | `embedding_dimension=` | `order=` |
+| `util_pattern_space(x, lag, dim)` | | `time_delay_embedding(x, dim, lag).copy()` |
 
 ## Performance
 
@@ -101,8 +115,8 @@ pyentrp 2.3.0, Python 3.13.18, NumPy 2.2.6, Apple M4 Pro. White noise, best of u
 | `permutation_entropy (order 3)` | 8 µs | 32 µs | 256 µs |
 | `permutation_entropy (order 6)` | 21 µs | 79 µs | 639 µs |
 | `weighted_permutation_entropy (order 3)` | 12 µs | 53 µs | 441 µs |
-| `multiscale_permutation_entropy (m=3, 5 scales)` | 52 µs | 172 µs | 1.3 ms |
-| `dispersion_entropy (c=6, m=3)` | 24 µs | 83 µs | 1.3 ms |
+| `multiscale_permutation_entropy (order 3, 5 scales)` | 52 µs | 172 µs | 1.3 ms |
+| `dispersion_entropy (6 classes, order 3)` | 24 µs | 83 µs | 1.3 ms |
 | `sample_entropy (m=2)` | 656 µs | 43.3 ms | 2.9 s |
 | `multiscale_entropy (m=2, 5 scales)` | 1.2 ms | 67.8 ms | 4.3 s |
 | `composite_multiscale_entropy (m=2, scale 5)` | 2.1 ms | 111.2 ms | 6.7 s |

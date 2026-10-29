@@ -1,20 +1,10 @@
 import unittest
+import warnings
 
 import numpy as np
 
 from pyentrp import entropy as ent
 from tests._entropy_test_data import TIME_SERIES
-
-
-class TestEntropy(unittest.TestCase):
-    def test_util_pattern_space(self):
-        """Construct the expected embedded pattern space."""
-        self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 0, 2)
-        self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 10, 20)
-        np.testing.assert_array_equal(
-            ent.util_pattern_space(TIME_SERIES, 2, 3),
-            np.array([[1, 1, 3], [1, 2, 4], [1, 3, 5]]),
-        )
 
 
 class TestValidationHelpers(unittest.TestCase):
@@ -65,6 +55,28 @@ class TestUtilityValidation(unittest.TestCase):
 
 
 class TestPatternSpace(unittest.TestCase):
+    """util_pattern_space is deprecated but must keep working until 4.0."""
+
+    def setUp(self):
+        ctx = warnings.catch_warnings()
+        ctx.__enter__()
+        self.addCleanup(ctx.__exit__, None, None, None)
+        warnings.simplefilter("ignore", DeprecationWarning)
+
+    def test_warns_deprecation(self):
+        """Point users to time_delay_embedding."""
+        with self.assertWarnsRegex(DeprecationWarning, "time_delay_embedding"):
+            ent.util_pattern_space(TIME_SERIES, 2, 3)
+
+    def test_util_pattern_space(self):
+        """Construct the expected embedded pattern space."""
+        self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 0, 2)
+        self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 10, 20)
+        np.testing.assert_array_equal(
+            ent.util_pattern_space(TIME_SERIES, 2, 3),
+            np.array([[1, 1, 3], [1, 2, 4], [1, 3, 5]]),
+        )
+
     def test_accepts_shortest_valid_series(self):
         """Accept a series with exactly lag * (dim - 1) + 1 samples."""
         np.testing.assert_array_equal(ent.util_pattern_space([1, 2, 3], 2, 2), [[1.0, 3.0]])
