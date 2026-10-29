@@ -248,5 +248,18 @@ class TestDispersionConstantSeries(unittest.TestCase):
                 self.assertEqual(math.copysign(1.0, res), 1.0)
 
 
+class TestDispersionLargePatternSpaces(unittest.TestCase):
+    def test_int64_ids_and_rows_agree_with_brute_force(self):
+        """Count patterns exactly with int64 ids up to 2**63 patterns and with rows beyond."""
+        x = np.random.default_rng(5).standard_normal(400)
+        for classes, order in ((10, 6), (2, 63), (2, 64), (40, 5)):
+            with self.subTest(classes=classes, order=order):
+                z = map_to_classes(x, classes, "ncdf")
+                counts = Counter(tuple(z[i : i + order]) for i in range(len(z) - order + 1))
+                p = np.array(list(counts.values())) / sum(counts.values())
+                expected = float(-np.sum(p * np.log2(p)))
+                self.assertAlmostEqual(ent.dispersion_entropy(x, classes, order), expected, places=12)
+
+
 if __name__ == "__main__":
     unittest.main()

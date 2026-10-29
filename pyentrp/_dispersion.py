@@ -6,7 +6,6 @@ from statistics import NormalDist
 import numpy as np
 
 from ._core import (
-    BINCOUNT_MAX_PATTERNS,
     count_patterns,
     entropy_bits,
     pool_patterns,
@@ -121,8 +120,14 @@ def map_to_classes(time_series, classes, mapping, reference=None):
     if mapping == "ncdf":
         zscores = (time_series - loc) / spread
         normal = NormalDist()
-        boundaries = np.array([normal.inv_cdf(k / classes) for k in range(1, classes)])
-        return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
+        boundaries = [normal.inv_cdf(k / classes) for k in range(1, classes)]
+        if classes > 16:
+            return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
+        # a few vectorized comparisons are faster than a binary search per value
+        labels = np.ones(len(zscores), dtype=np.int64)
+        for b in boundaries:
+            labels += zscores >= b
+        return labels
 
     y = (time_series - loc) / spread
     # clamp both ends: a block mean of the minimum can round to just below the original minimum
@@ -146,9 +151,9 @@ def prepare_dispersion(  # noqa: PLR0913
 
 
 def pattern_space_fits(classes, order):
-    """Return True when classes ** order patterns are few enough to count with integer ids."""
+    """Return True when every pattern has an int64 id, i.e. classes ** order <= 2 ** 63."""
     # compare logs first: classes ** order can be an enormous integer
-    return order * math.log(classes) <= math.log(BINCOUNT_MAX_PATTERNS)
+    return order * math.log2(classes) <= 62 or int(classes) ** int(order) <= 2**63
 
 
 def dispersion_patterns(x, classes, order, delay, mapping, reference, **_):  # noqa: PLR0913
@@ -159,7 +164,7 @@ def dispersion_patterns(x, classes, order, delay, mapping, reference, **_):  # n
     """
     z = map_to_classes(x, classes, mapping, reference)
     if not pattern_space_fits(classes, order):
-        # identical rows are counted later; no integer encoding, which could overflow int64
+        # identical rows are counted later; integer ids would overflow int64
         return time_delay_embedding(z, order, delay), None
 
     # encode each pattern as a base-`classes` integer
@@ -176,6 +181,7 @@ def dispersion_patterns(x, classes, order, delay, mapping, reference, **_):  # n
 def dispersion_value(stats, classes, order, normalize, **_):
     """Return the dispersion entropy in bits (or normalized) from the patterns."""
     patterns, weights = stats
+    # count_ids uses np.bincount for small pattern spaces and np.unique for large ones
     n_patterns = int(classes) ** int(order) if pattern_space_fits(classes, order) else None
     de = entropy_bits(count_patterns(patterns, n_patterns, weights))
     if normalize and de > 0.0:

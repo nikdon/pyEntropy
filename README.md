@@ -144,9 +144,9 @@ pyentrp 2.3.0, Python 3.13.18, NumPy 2.2.6, Apple M4 Pro. White noise, best of u
 | `permutation_entropy (order 6)` | 21 µs | 79 µs | 639 µs |
 | `weighted_permutation_entropy (order 3)` | 12 µs | 53 µs | 441 µs |
 | `multiscale_permutation_entropy (order 3, 5 scales)` | 52 µs | 172 µs | 1.3 ms |
-| `dispersion_entropy (6 classes, order 3)` | 24 µs | 83 µs | 1.3 ms |
+| `dispersion_entropy (6 classes, order 3)` | 29 µs | 90 µs | 619 µs |
 | `composite_multiscale permutation_entropy (order 3, scale 5)` | 153 µs | 469 µs | 3.5 ms |
-| `refined_composite_multiscale dispersion_entropy (6 classes, order 3, scale 5)` | 222 µs | 929 µs | 8.7 ms |
+| `refined_composite_multiscale dispersion_entropy (6 classes, order 3, scale 5)` | 251 µs | 742 µs | 5.3 ms |
 | `sample_entropy (m=2)` | 656 µs | 43.3 ms | 2.9 s |
 | `multiscale_entropy (m=2, 5 scales)` | 1.2 ms | 67.8 ms | 4.3 s |
 | `composite_multiscale_entropy (m=2, scale 5)` | 2.1 ms | 111.2 ms | 6.7 s |
