@@ -32,8 +32,17 @@ def _check_integer(name, value, minimum, maximum=None):
         raise ValueError(f"{name} must be an integer <= {maximum}.")
 
 
-def _validate_series(time_series):
+def _validate_series(time_series, keep_integer=False):
     """Return the time series as a 1D float array.
+
+    Parameters
+    ----------
+    time_series : array_like
+        Input series.
+    keep_integer : bool, optional
+        If True, return integer input with its dtype unchanged instead of converting it
+        to float. Use this where values are only compared: float64 cannot tell apart
+        integers above 2**53 (e.g. 2**53 and 2**53 + 1).
 
     Raises
     ------
@@ -41,7 +50,9 @@ def _validate_series(time_series):
         If the series is not 1D or contains NaN or infinite values.
 
     """
-    time_series = np.asarray(time_series, dtype=float)
+    time_series = np.asarray(time_series)
+    if not (keep_integer and np.issubdtype(time_series.dtype, np.integer)):
+        time_series = time_series.astype(float, copy=False)
 
     if time_series.ndim != 1:
         raise ValueError("time_series must be a 1D array.")
@@ -610,7 +621,8 @@ def permutation_entropy(time_series, order=3, delay=1, normalize=False):
         samples.
 
     """
-    x = _validate_series(time_series)
+    # keep integer input as is: converting to float would merge large integers before they are compared
+    x = _validate_series(time_series, keep_integer=True)
     _check_integer("order", order, 1, _MAX_PERMUTATION_ORDER)
     _check_integer("delay", delay, 1)
     _check_embedding_length(x, order, delay)
@@ -675,7 +687,7 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
         entries are NaN.
 
     """
-    time_series = _validate_series(time_series)
+    time_series = _validate_series(time_series, keep_integer=True)
     _check_integer("m", m, 1, _MAX_PERMUTATION_ORDER)
     _check_integer("delay", delay, 1)
     _check_integer("scale", scale, 1)
@@ -683,7 +695,8 @@ def multiscale_permutation_entropy(time_series, m, delay, scale):
     min_length = (m - 1) * delay + 1
     mspe = np.full(scale, np.nan)
     for i in range(scale):
-        coarse_time_series = util_granulate_time_series(time_series, i + 1)
+        # scale 1 is the series itself; averaging would turn integers into floats and could merge them
+        coarse_time_series = time_series if i == 0 else util_granulate_time_series(time_series, i + 1)
         if len(coarse_time_series) < min_length:
             # coarse series only get shorter with scale, so every remaining scale is too short
             warnings.warn(
@@ -756,13 +769,14 @@ def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False)
         samples.
 
     """
-    x = _validate_series(time_series)
+    # patterns come from the original values (integers are not rounded); the weights need float
+    x = _validate_series(time_series, keep_integer=True)
     _check_integer("order", order, 1, _MAX_PERMUTATION_ORDER)
     _check_integer("delay", delay, 1)
     _check_embedding_length(x, order, delay)
 
     lehmer = _motif_lehmer_ids(x, order=order, delay=delay)
-    weights = _window_weights(x, order=order, delay=delay)
+    weights = _window_weights(x.astype(np.float64, copy=False), order=order, delay=delay)
 
     n_motifs = math.factorial(order)
     if n_motifs <= _BINCOUNT_MAX_PATTERNS:

@@ -76,3 +76,19 @@ class TestPatternSpace(unittest.TestCase):
         """Reject zero or non-integer lag and dim."""
         self.assertRaises(ValueError, ent.util_pattern_space, TIME_SERIES, 1, 0)
         self.assertRaises(TypeError, ent.util_pattern_space, TIME_SERIES, 1.0, 2)
+
+
+class TestValidateSeriesKeepInteger(unittest.TestCase):
+    def test_keep_integer_preserves_integer_dtype(self):
+        """Return integer input unchanged with keep_integer=True, and float input as float."""
+        for dtype in (np.int64, np.int32, np.uint64):
+            out = ent._validate_series(np.array([1, 2, 3], dtype=dtype), keep_integer=True)
+            self.assertEqual(out.dtype, dtype)
+        self.assertEqual(ent._validate_series([2**53 + 1], keep_integer=True)[0], 2**53 + 1)
+        self.assertEqual(ent._validate_series([1.5, 2.0], keep_integer=True).dtype, np.float64)
+        self.assertEqual(ent._validate_series([True, False], keep_integer=True).dtype, np.float64)
+
+    def test_keep_integer_still_validates(self):
+        """Reject non-1D integer input and non-finite float input with keep_integer=True."""
+        self.assertRaises(ValueError, ent._validate_series, np.zeros((2, 2), dtype=np.int64), keep_integer=True)
+        self.assertRaises(ValueError, ent._validate_series, [1.0, np.nan], keep_integer=True)

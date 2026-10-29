@@ -117,3 +117,33 @@ class TestPermutationOrderLimit(unittest.TestCase):
         self.assertRaises(ValueError, ent.permutation_entropy, x, order=21)
         self.assertRaises(ValueError, ent.weighted_permutation_entropy, x, order=21)
         self.assertRaises(ValueError, ent.multiscale_permutation_entropy, x, 21, 1, 1)
+
+
+class TestLargeIntegers(unittest.TestCase):
+    """Integers above 2**53 are not exactly representable in float64 and must be compared as integers."""
+
+    # 2**53 + 1 rounds to 2**53 in float64, so a float conversion would make the series constant
+    SERIES = (2**53, 2**53 + 1, 2**53, 2**53 + 1)
+    # order 2 sees the patterns up, down, up
+    EXPECTED = -(2 / 3 * math.log2(2 / 3) + 1 / 3 * math.log2(1 / 3))
+
+    def test_permutation_entropy_keeps_large_integers_apart(self):
+        """Count the two patterns of large integers that float64 would merge."""
+        for data in (self.SERIES, np.array(self.SERIES, dtype=np.int64), np.array(self.SERIES, dtype=np.uint64)):
+            self.assertAlmostEqual(ent.permutation_entropy(data, order=2), self.EXPECTED, places=12)
+
+    def test_multiscale_permutation_entropy_scale_one_matches(self):
+        """Use the integer series itself at scale 1."""
+        res = ent.multiscale_permutation_entropy(self.SERIES, 2, 1, 1)
+        self.assertAlmostEqual(res[0], self.EXPECTED, places=12)
+
+    def test_weighted_permutation_entropy_uses_integer_patterns(self):
+        """Build weighted patterns from the integers, not from their float64 roundings."""
+        b = 2**53
+        series = [b + 1, b, b + 8, b + 16]
+        # integers: windows (b + 1, b, b + 8) and (b, b + 8, b + 16) are two different patterns.
+        # float64 rounds b + 1 to b, which ties the first window and merges it with the second.
+        # The weights are computed in float: 3 * sum(d**2) - sum(d)**2 = 128 and 384.
+        expected = -(0.25 * math.log2(0.25) + 0.75 * math.log2(0.75))
+        self.assertAlmostEqual(ent.weighted_permutation_entropy(series, order=3), expected, places=12)
+        self.assertEqual(ent.weighted_permutation_entropy(np.array(series, dtype=float), order=3), 0.0)
