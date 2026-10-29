@@ -108,7 +108,7 @@ def map_to_classes(time_series, classes, mapping, reference=None):
 
     Notes
     -----
-    A scaled value y maps to min(floor(classes * y) + 1, classes). Values on
+    A scaled value y maps to floor(classes * y) + 1, clamped to [1, classes]. Values on
     class boundaries are assigned to the higher class. For "ncdf", class
     boundaries are the standard-normal quantiles k / classes for
     k = 1, ..., classes - 1.
@@ -125,7 +125,8 @@ def map_to_classes(time_series, classes, mapping, reference=None):
         return np.searchsorted(boundaries, zscores, side="right").astype(np.int64) + 1
 
     y = (time_series - loc) / spread
-    return np.minimum(np.floor(classes * y).astype(np.int64) + 1, classes)
+    # clamp both ends: a block mean of the minimum can round to just below the original minimum
+    return np.clip(np.floor(classes * y).astype(np.int64) + 1, 1, classes)
 
 
 def prepare_dispersion(  # noqa: PLR0913

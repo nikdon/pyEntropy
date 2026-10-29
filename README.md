@@ -86,6 +86,8 @@ pe.refined_composite_multiscale(noise, pe.dispersion_entropy, scale=5, classes=6
 - Parameters are checked once. Settings that depend on the data come from the original series and stay fixed across
   scales: the default tolerance, and the mean and std (or range) that dispersion entropy maps classes with.
 - A scale whose coarse-grained series is too short for the measure gives NaN, with one `RuntimeWarning`.
+  `refined_composite_multiscale` leaves out only the shifts that are too short, so it still gives a value while at
+  least one shift at that scale is long enough.
 - `multiscale_entropy`, `composite_multiscale_entropy`, `rcmse` and `multiscale_permutation_entropy` remain as
   shortcuts for these functions with sample and permutation entropy.
 
@@ -129,7 +131,7 @@ The old names still work in 3.x with a `DeprecationWarning` and will be removed 
 | `fuzzy_entropy` | `sample_length=`, `n=` | `m=`, `exponent=` (same values) |
 | `multiscale_permutation_entropy` | `m=` | `order=` (same value) |
 | `time_delay_embedding` | `embedding_dimension=` | `order=` |
-| `util_pattern_space(x, lag, dim)` | | `time_delay_embedding(x, dim, lag).copy()` |
+| `util_pattern_space(x, lag, dim)` | | `time_delay_embedding(np.asarray(x, dtype=float), dim, lag).copy()` |
 
 ## Performance
 

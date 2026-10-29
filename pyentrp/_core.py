@@ -82,7 +82,7 @@ def util_pattern_space(time_series, lag, dim):
     """
     warn(
         "util_pattern_space is deprecated and will be removed in pyentrp 4.0; "
-        "use time_delay_embedding(time_series, dim, lag).copy().",
+        "use time_delay_embedding(np.asarray(time_series, dtype=float), dim, lag).copy().",
         DeprecationWarning,
     )
     time_series = validate_series(time_series)

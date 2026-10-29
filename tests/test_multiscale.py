@@ -222,6 +222,14 @@ class TestEdgeCases(unittest.TestCase):
         for method in METHODS:
             self.assertEqual(method(big, pe.permutation_entropy, 1, order=2)[0], pe.permutation_entropy(big, 2))
 
+    def test_linear_mapping_of_block_means_below_the_minimum(self):
+        """Keep class labels in range when a block mean rounds to just below the original minimum."""
+        x = np.array([0.7] * 3 + [1.0, 2.0, 0.7, 0.7, 0.7, 5.0])
+        self.assertLess(np.mean(x[:3]), x.min())
+        for method in METHODS:
+            res = method(x, pe.dispersion_entropy, 3, classes=3, order=1, mapping="linear")
+            self.assertTrue(np.all(np.isfinite(res)))
+
     def test_constant_weighted_shifts_are_skipped(self):
         """Give 0.0, like the single-scale measure, when no window has any weight."""
         res = pe.refined_composite_multiscale(np.ones(50), pe.weighted_permutation_entropy, 3, order=3)
