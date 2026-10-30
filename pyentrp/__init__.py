@@ -25,6 +25,7 @@ from ._sample import (
     refined_composite_multiscale_entropy,
     sample_entropy,
 )
+from ._symbolic import corrected_conditional_entropy, lempel_ziv_complexity, slope_entropy
 
 __all__ = [
     "amplitude_aware_permutation_entropy",
@@ -32,10 +33,12 @@ __all__ = [
     "bubble_entropy",
     "composite_multiscale",
     "composite_multiscale_entropy",
+    "corrected_conditional_entropy",
     "cosine_similarity_entropy",
     "dispersion_entropy",
     "distribution_entropy",
     "fuzzy_entropy",
+    "lempel_ziv_complexity",
     "multiscale",
     "multiscale_entropy",
     "multiscale_permutation_entropy",
@@ -47,6 +50,7 @@ __all__ = [
     "reverse_dispersion_entropy",
     "sample_entropy",
     "shannon_entropy",
+    "slope_entropy",
     "statistical_complexity",
     "time_delay_embedding",
     "util_granulate_time_series",
