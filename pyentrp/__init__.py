@@ -12,6 +12,12 @@ from ._ordinal import (
     statistical_complexity,
     weighted_permutation_entropy,
 )
+from ._regularity import (
+    approximate_entropy,
+    cosine_similarity_entropy,
+    distribution_entropy,
+    range_entropy,
+)
 from ._sample import (
     composite_multiscale_entropy,
     multiscale_entropy,
@@ -22,15 +28,19 @@ from ._sample import (
 
 __all__ = [
     "amplitude_aware_permutation_entropy",
+    "approximate_entropy",
     "bubble_entropy",
     "composite_multiscale",
     "composite_multiscale_entropy",
+    "cosine_similarity_entropy",
     "dispersion_entropy",
+    "distribution_entropy",
     "fuzzy_entropy",
     "multiscale",
     "multiscale_entropy",
     "multiscale_permutation_entropy",
     "permutation_entropy",
+    "range_entropy",
     "rcmse",
     "refined_composite_multiscale",
     "refined_composite_multiscale_entropy",

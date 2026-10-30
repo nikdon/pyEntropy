@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
@@ -32,7 +32,7 @@ class Measure:
         ``value(stats, **p) -> float``: the entropy from the statistics.
     min_length : callable
         ``min_length(**p) -> int``: the shortest series that gives a value.
-    pool : callable
+    pool : callable or None
         ``pool(list of stats) -> stats``: combine the statistics of several series, for the
         refined composite method.
 
@@ -42,7 +42,7 @@ class Measure:
     stats: Callable
     value: Callable
     min_length: Callable
-    pool: Callable
+    pool: Callable | None = None
 
     def __call__(self, time_series, **params):
         """Compute the measure of a single series."""
@@ -57,11 +57,6 @@ MEASURES = {}
 def register(func, measure):
     """Make `func` usable as the measure of the multiscale methods."""
     MEASURES[func] = measure
-
-
-def cannot_pool(stats):
-    """Stand in for the pooling of a function that is not a registered measure (never reached)."""
-    raise TypeError("refined_composite_multiscale needs a registered measure.")
 
 
 def sum_stats(stats):
@@ -116,18 +111,17 @@ def bind(time_series, measure, params, method):
     if spec is None:
         if not callable(measure):
             raise TypeError(f"measure must be a callable, got {type(measure).__name__}.")
-        if method == "refined_composite_multiscale":
-            raise TypeError(
-                "refined_composite_multiscale pools the internal statistics of a measure, so it needs one of "
-                "sample_entropy, fuzzy_entropy, permutation_entropy, weighted_permutation_entropy or "
-                "dispersion_entropy."
-            )
         spec = Measure(
             prepare=lambda ts, **p: (validate_series(ts), p),
             stats=measure,
             value=lambda v, **_: float(v),
             min_length=lambda **_: 1,
-            pool=cannot_pool,
+        )
+    if method == "refined_composite_multiscale" and spec.pool is None:
+        poolable = sorted(f.__name__ for f, m in MEASURES.items() if m.pool is not None)
+        raise TypeError(
+            "refined_composite_multiscale pools the internal statistics of a measure, so it needs one of "
+            f"{', '.join(poolable)}."
         )
     x, p = spec.prepare(time_series, **params)
     min_length = spec.min_length(**p)
@@ -353,5 +347,6 @@ def refined_composite_multiscale(
             # the first shift is the longest, and it only gets shorter with the scale
             warn_too_short(k, min_length)
             break
-        values[k - 1] = spec.value(spec.pool(stats), **p)
+        pool = cast("Callable", spec.pool)  # bind() rejects measures that cannot be pooled
+        values[k - 1] = spec.value(pool(stats), **p)
     return values
