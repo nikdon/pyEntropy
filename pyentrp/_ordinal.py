@@ -1,12 +1,18 @@
 """Permutation entropy and its weighted and multiscale variants."""
 
+from __future__ import annotations
+
 import math
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from ._core import count_patterns, entropy_bits, pool_patterns, window_length
 from ._multiscale import Measure, multiscale, register
 from ._validation import check_embedding_length, check_integer, renamed, validate_series
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike, NDArray
 
 # largest permutation order: pattern ids go up to order! - 1, and 20! - 1 is the last that fits in int64.
 MAX_PERMUTATION_ORDER = 20
@@ -168,7 +174,7 @@ WEIGHTED_PERMUTATION = Measure(
 )
 
 
-def permutation_entropy(time_series, order=3, delay=1, normalize=False):
+def permutation_entropy(time_series: ArrayLike, order: int = 3, delay: int = 1, normalize: bool = False) -> float:
     """Calculate Permutation Entropy.
 
     Parameters
@@ -230,7 +236,7 @@ register(permutation_entropy, PERMUTATION)
 
 
 @renamed(m="order")
-def multiscale_permutation_entropy(time_series, order, delay, scale):
+def multiscale_permutation_entropy(time_series: ArrayLike, order: int, delay: int, scale: int) -> NDArray[np.float64]:
     """Calculate the Multiscale Permutation Entropy: permutation entropy at scales 1 .. scale.
 
     Parameters
@@ -275,7 +281,9 @@ def multiscale_permutation_entropy(time_series, order, delay, scale):
     return multiscale(time_series, permutation_entropy, scale, order=order, delay=delay)
 
 
-def weighted_permutation_entropy(time_series, order=2, delay=1, normalize=False):
+def weighted_permutation_entropy(
+    time_series: ArrayLike, order: int = 2, delay: int = 1, normalize: bool = False
+) -> float:
     """Calculate the weighted permutation entropy.
 
     Weighted permutation entropy captures the information in the amplitude of a signal where

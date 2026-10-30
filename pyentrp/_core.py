@@ -1,18 +1,24 @@
 """Embedding, pattern counting and Shannon entropy."""
 
+from __future__ import annotations
+
 from collections import Counter
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
 from ._validation import check_embedding_length, check_integer, renamed, validate_series, warn
 
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike, NDArray
+
 # largest pattern space (order! or classes ** order) counted with np.bincount; larger spaces use np.unique.
 BINCOUNT_MAX_PATTERNS = 1_000_000
 
 
 @renamed(embedding_dimension="order")
-def time_delay_embedding(time_series, order, delay):
+def time_delay_embedding(time_series: ArrayLike, order: int, delay: int) -> NDArray[Any]:
     """Calculate time-delayed embedding.
 
     Parameters
@@ -46,7 +52,7 @@ def time_delay_embedding(time_series, order, delay):
     return view[:, ::delay] if delay > 1 else view
 
 
-def util_pattern_space(time_series, lag, dim):
+def util_pattern_space(time_series: ArrayLike, lag: int, dim: int) -> NDArray[np.float64]:
     """Create a set of sequences with a given lag and dimension.
 
     Deprecated, will be removed in pyentrp 4.0: use ``time_delay_embedding(time_series, dim, lag).copy()``
@@ -160,7 +166,7 @@ def entropy_bits(weights):
     return h if h > 0.0 else 0.0
 
 
-def shannon_entropy(time_series):
+def shannon_entropy(time_series: ArrayLike | str) -> float:
     """Calculate Shannon Entropy of the sample data.
 
     Parameters

@@ -44,6 +44,8 @@ jobs:
       run: poetry run ruff format . --check --diff
     - name: Lint with ruff
       run: poetry run ruff check .
+    - name: Type check with ty
+      run: poetry run ty check
     - name: Test with coverage
       run: |
         poetry run coverage run -m unittest discover

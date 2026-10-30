@@ -1,7 +1,10 @@
 """Dispersion entropy."""
 
+from __future__ import annotations
+
 import math
 from statistics import NormalDist
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -14,6 +17,9 @@ from ._core import (
 )
 from ._multiscale import Measure, register
 from ._validation import check_embedding_length, check_integer, validate_series
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike
 
 
 def validate_dispersion_params(  # noqa: PLR0913
@@ -193,13 +199,13 @@ DISPERSION = Measure(prepare_dispersion, dispersion_patterns, dispersion_value, 
 
 
 def dispersion_entropy(  # noqa: PLR0913
-    time_series,
-    classes=3,
-    order=3,
-    delay=1,
-    mapping="ncdf",
-    normalize=False,
-):
+    time_series: ArrayLike,
+    classes: int = 3,
+    order: int = 3,
+    delay: int = 1,
+    mapping: str = "ncdf",
+    normalize: bool = False,
+) -> float:
     """Calculate Dispersion Entropy (DispEn).
 
     Dispersion entropy evaluates the complexity of a time series by mapping values

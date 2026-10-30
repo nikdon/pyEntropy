@@ -1,11 +1,18 @@
 """Multiscale, composite multiscale and refined composite multiscale entropy for any measure."""
 
-from collections.abc import Callable
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ._validation import check_integer, validate_series, warn
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from numpy.typing import ArrayLike, NDArray
 
 
 @dataclass(frozen=True)
@@ -52,6 +59,11 @@ def register(func, measure):
     MEASURES[func] = measure
 
 
+def cannot_pool(stats):
+    """Stand in for the pooling of a function that is not a registered measure (never reached)."""
+    raise TypeError("refined_composite_multiscale needs a registered measure.")
+
+
 def sum_stats(stats):
     """Pool statistics that add up, such as match counts."""
     return np.sum(stats, axis=0)
@@ -69,7 +81,7 @@ def coarse_grain(x, scale):
     return np.mean(x[: b * scale].reshape(b, scale), axis=1)
 
 
-def util_granulate_time_series(time_series, scale):
+def util_granulate_time_series(time_series: ArrayLike, scale: int) -> NDArray[np.float64]:
     """Extract coarse-grained time series.
 
     Parameters
@@ -115,7 +127,7 @@ def bind(time_series, measure, params, method):
             stats=measure,
             value=lambda v, **_: float(v),
             min_length=lambda **_: 1,
-            pool=None,
+            pool=cannot_pool,
         )
     x, p = spec.prepare(time_series, **params)
     min_length = spec.min_length(**p)
@@ -134,7 +146,9 @@ def warn_too_short(scale, min_length):
     )
 
 
-def multiscale(time_series, measure, scale=20, **params):
+def multiscale(
+    time_series: ArrayLike, measure: Callable[..., Any], scale: int = 20, **params: Any
+) -> NDArray[np.float64]:
     """Compute an entropy measure of the coarse-grained series at scales 1 .. scale (Costa et al.).
 
     At scale k the series is averaged over non-overlapping blocks of k samples, and the
@@ -205,7 +219,9 @@ def multiscale(time_series, measure, scale=20, **params):
     return values
 
 
-def composite_multiscale(time_series, measure, scale=20, **params):
+def composite_multiscale(
+    time_series: ArrayLike, measure: Callable[..., Any], scale: int = 20, **params: Any
+) -> NDArray[np.float64]:
     """Compute an entropy measure at scales 1 .. scale, averaged over all k coarse-grainings at scale k (Wu et al.).
 
     At scale k the series is coarse-grained starting at each of its first k samples,
@@ -267,7 +283,9 @@ def composite_multiscale(time_series, measure, scale=20, **params):
     return values
 
 
-def refined_composite_multiscale(time_series, measure, scale=20, **params):
+def refined_composite_multiscale(
+    time_series: ArrayLike, measure: Callable[..., Any], scale: int = 20, **params: Any
+) -> NDArray[np.float64]:
     """Compute an entropy measure at scales 1 .. scale, pooling all k coarse-grainings at scale k.
 
     Like `composite_multiscale`, but the k coarse-grained series are combined before the

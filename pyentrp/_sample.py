@@ -1,5 +1,9 @@
 """Sample entropy and its multiscale variants (MSE, CMSE, RCMSE)."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
@@ -12,6 +16,9 @@ from ._multiscale import (
     sum_stats,
 )
 from ._validation import renamed, resolve_tolerance, template_length, validate_series
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike, NDArray
 
 # the sorted band search pays off from about this many windows (its setup costs more on short series)
 BANDED_MIN_WINDOWS = 512
@@ -195,7 +202,9 @@ def sample_min_length(sample_length, **_):
 SAMPLE = Measure(prepare_sample, count_template_matches, sample_value, sample_min_length, sum_stats)
 
 
-def sample_entropy(time_series, sample_length=None, tolerance=None, *, m=None):
+def sample_entropy(
+    time_series: ArrayLike, sample_length: int | None = None, tolerance: float | None = None, *, m: int | None = None
+) -> NDArray[np.float64]:
     """Calculate the sample entropy SampEn(m, r) of a time series, using the Chebyshev distance.
 
     Parameters
@@ -260,7 +269,14 @@ register(sample_entropy, SAMPLE)
 
 
 @renamed(maxscale="scale")
-def multiscale_entropy(time_series, sample_length=None, tolerance=None, scale=20, *, m=None):
+def multiscale_entropy(
+    time_series: ArrayLike,
+    sample_length: int | None = None,
+    tolerance: float | None = None,
+    scale: int | None = 20,
+    *,
+    m: int | None = None,
+) -> NDArray[np.float64]:
     """Calculate Multiscale Entropy: SampEn(m, r) of the coarse-grained series at scales 1 .. scale.
 
     Parameters
@@ -308,7 +324,14 @@ def multiscale_entropy(time_series, sample_length=None, tolerance=None, scale=20
     return multiscale(time_series, sample_entropy, scale, sample_length=sample_length, tolerance=tolerance, m=m)
 
 
-def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
+def composite_multiscale_entropy(
+    time_series: ArrayLike,
+    sample_length: int | None = None,
+    scale: int = 20,
+    tolerance: float | None = None,
+    *,
+    m: int | None = None,
+) -> NDArray[np.float64]:
     """Calculate Composite Multiscale Entropy: at each scale, average SampEn(m, r) over all shifted coarse series.
 
     Parameters
@@ -353,7 +376,14 @@ def composite_multiscale_entropy(time_series, sample_length=None, scale=20, tole
     )
 
 
-def rcmse(time_series, sample_length=None, scale=20, tolerance=None, *, m=None):
+def rcmse(
+    time_series: ArrayLike,
+    sample_length: int | None = None,
+    scale: int = 20,
+    tolerance: float | None = None,
+    *,
+    m: int | None = None,
+) -> NDArray[np.float64]:
     """Calculate Refined Composite Multiscale Entropy (RCMSE).
 
     At each scale, pool template matches across all shifted series formed by

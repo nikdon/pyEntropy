@@ -18,6 +18,7 @@ setup(
     maintainer_email="nd@donets.org",
     license="Apache-2.0",
     packages=["pyentrp"],
+    package_data={"pyentrp": ["py.typed"]},
     test_suite="tests.test_entropy",
     keywords=[
         "python",
@@ -34,6 +35,7 @@ setup(
         "Operating System :: OS Independent",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3",
+        "Typing :: Typed",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",

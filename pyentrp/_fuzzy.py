@@ -1,10 +1,17 @@
 """Fuzzy entropy."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
 from ._multiscale import Measure, register, sum_stats
 from ._validation import check_integer, renamed, resolve_tolerance, validate_series, warn
+
+if TYPE_CHECKING:
+    from numpy.typing import ArrayLike
 
 
 def prepare_centered_T(x, order, n_vectors, inv_tol):
@@ -72,7 +79,7 @@ def compute_phi(cent_T, exponent, chunk_size=32):
     # triu_mask[r, c] is True when c >= r, i.e. when the column vector comes after the row vector
     triu_mask = np.triu(np.ones((chunk_size, chunk_size - 1), dtype=np.bool_))
     flat_dist = np.empty(chunk_size * (n_vec - 1))
-    flat_tmp = np.empty(chunk_size * (n_vec - 1)) if m_eff > 1 else None
+    flat_tmp = np.empty(chunk_size * (n_vec - 1) if m_eff > 1 else 0)
 
     for start in range(0, n_vec - 1, chunk_size):
         end = min(start + chunk_size, n_vec - 1)
@@ -155,7 +162,7 @@ FUZZY = Measure(prepare_fuzzy, fuzzy_similarities, fuzzy_value, fuzzy_min_length
 
 
 @renamed(sample_length="m", n="exponent")
-def fuzzy_entropy(time_series, m=2, tolerance=None, exponent=2):
+def fuzzy_entropy(time_series: ArrayLike, m: int = 2, tolerance: float | None = None, exponent: float = 2) -> float:
     """Calculate Fuzzy Entropy (FuzzyEn) using exponential membership function.
 
     Fuzzy entropy characterizes the regularity of a time series by replacing

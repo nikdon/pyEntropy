@@ -1,11 +1,19 @@
 """Input checks shared by all entropy measures."""
 
+from __future__ import annotations
+
 import functools
 import os
 import sys
 import warnings
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+F = TypeVar("F", bound="Callable[..., Any]")
 
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__)) + os.sep
 
@@ -119,28 +127,31 @@ def check_embedding_length(time_series, order, delay):
         )
 
 
-def renamed(**old_to_new):
+def renamed(**old_to_new: str) -> Callable[[F], F]:
     """Accept deprecated keyword names: ``@renamed(old="new")`` maps ``old=`` to ``new=`` with a warning.
 
     Positional arguments are unaffected. Passing both names raises TypeError.
 
     """
 
-    def decorate(func):
+    def decorate(func: F) -> F:
+        name = getattr(func, "__name__", "function")
+
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             for old, new in old_to_new.items():
                 if old in kwargs:
                     if new in kwargs:
-                        raise TypeError(f"{func.__name__}() got both {old!r} and {new!r}; pass only {new!r}.")
+                        raise TypeError(f"{name}() got both {old!r} and {new!r}; pass only {new!r}.")
                     warn(
-                        f"{func.__name__}(): {old!r} is deprecated and will be removed in pyentrp 4.0; use {new!r}.",
+                        f"{name}(): {old!r} is deprecated and will be removed in pyentrp 4.0; use {new!r}.",
                         DeprecationWarning,
                     )
                     kwargs[new] = kwargs.pop(old)
             return func(*args, **kwargs)
 
-        return wrapper
+        # type checkers see the new names only; the old ones still work at runtime, with a warning
+        return cast("F", wrapper)
 
     return decorate
 
