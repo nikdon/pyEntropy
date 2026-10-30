@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from statistics import NormalDist
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -203,7 +203,7 @@ def dispersion_entropy(  # noqa: PLR0913
     classes: int = 3,
     order: int = 3,
     delay: int = 1,
-    mapping: str = "ncdf",
+    mapping: Literal["ncdf", "linear"] = "ncdf",
     normalize: bool = False,
 ) -> float:
     """Calculate Dispersion Entropy (DispEn).
@@ -224,7 +224,8 @@ def dispersion_entropy(  # noqa: PLR0913
     delay : int, default=1
         Time delay in samples between consecutive pattern points (d >= 1).
     mapping : {"ncdf", "linear"}, default="ncdf"
-        Case-insensitive mapping function to project the signal into [0, 1]:
+        Mapping function to project the signal into [0, 1]. Case-insensitive at runtime;
+        type checkers accept the lowercase names.
         - "ncdf": Normal CDF using the series mean and standard deviation.
         - "linear": Linear min-max normalization.
         Values exactly on a class boundary go to the higher class.
