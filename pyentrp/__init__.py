@@ -1,10 +1,29 @@
 """Entropy measures for time series analysis."""
 
 from ._core import shannon_entropy, time_delay_embedding, util_pattern_space
-from ._dispersion import dispersion_entropy
+from ._dispersion import dispersion_entropy, reverse_dispersion_entropy
 from ._fuzzy import fuzzy_entropy
-from ._multiscale import composite_multiscale, multiscale, refined_composite_multiscale, util_granulate_time_series
-from ._ordinal import multiscale_permutation_entropy, permutation_entropy, weighted_permutation_entropy
+from ._multiscale import (
+    composite_multiscale,
+    hierarchical,
+    multiscale,
+    refined_composite_multiscale,
+    util_granulate_time_series,
+)
+from ._ordinal import (
+    amplitude_aware_permutation_entropy,
+    bubble_entropy,
+    multiscale_permutation_entropy,
+    permutation_entropy,
+    statistical_complexity,
+    weighted_permutation_entropy,
+)
+from ._regularity import (
+    approximate_entropy,
+    cosine_similarity_entropy,
+    distribution_entropy,
+    range_entropy,
+)
 from ._sample import (
     composite_multiscale_entropy,
     multiscale_entropy,
@@ -12,23 +31,40 @@ from ._sample import (
     refined_composite_multiscale_entropy,
     sample_entropy,
 )
+from ._spectral import spectral_entropy, svd_entropy, wavelet_entropy
+from ._symbolic import corrected_conditional_entropy, lempel_ziv_complexity, slope_entropy
 
 __all__ = [
+    "amplitude_aware_permutation_entropy",
+    "approximate_entropy",
+    "bubble_entropy",
     "composite_multiscale",
     "composite_multiscale_entropy",
+    "corrected_conditional_entropy",
+    "cosine_similarity_entropy",
     "dispersion_entropy",
+    "distribution_entropy",
     "fuzzy_entropy",
+    "hierarchical",
+    "lempel_ziv_complexity",
     "multiscale",
     "multiscale_entropy",
     "multiscale_permutation_entropy",
     "permutation_entropy",
+    "range_entropy",
     "rcmse",
     "refined_composite_multiscale",
     "refined_composite_multiscale_entropy",
+    "reverse_dispersion_entropy",
     "sample_entropy",
     "shannon_entropy",
+    "slope_entropy",
+    "spectral_entropy",
+    "statistical_complexity",
+    "svd_entropy",
     "time_delay_embedding",
     "util_granulate_time_series",
     "util_pattern_space",
+    "wavelet_entropy",
     "weighted_permutation_entropy",
 ]

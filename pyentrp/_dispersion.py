@@ -10,19 +10,20 @@ import numpy as np
 
 from ._core import (
     count_patterns,
-    entropy_bits,
+    generalized_entropy,
+    max_generalized_entropy,
     pool_patterns,
     time_delay_embedding,
     window_length,
 )
 from ._multiscale import Measure, register
-from ._validation import check_embedding_length, check_integer, validate_series
+from ._validation import check_embedding_length, check_entropy_kind, check_integer, validate_series
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike
 
 
-def validate_dispersion_params(  # noqa: PLR0913
+def validate_dispersion_params(
     time_series,
     classes,
     order,
@@ -140,71 +141,107 @@ def map_to_classes(time_series, classes, mapping, reference=None):
     return np.clip(np.floor(classes * y).astype(np.int64) + 1, 1, classes)
 
 
-def prepare_dispersion(  # noqa: PLR0913
-    time_series, classes=3, order=3, delay=1, mapping="ncdf", normalize=False
+def prepare_dispersion(
+    time_series, classes=3, order=3, delay=1, mapping="ncdf", normalize=False, *, fluctuation=False, **kind
 ):
     """Validate the input of dispersion entropy and fix the class mapping on this series."""
     x, mapping = validate_dispersion_params(time_series, classes, order, delay, mapping, normalize)
-    reference = mapping_reference(x, mapping)
+    if not isinstance(fluctuation, (bool, np.bool_)):
+        raise TypeError(f"fluctuation must be a boolean, got {type(fluctuation).__name__}.")
+    if fluctuation and order < 2:
+        raise ValueError("order must be >= 2 with fluctuation=True (patterns are the order - 1 class changes).")
+    if kind:
+        check_entropy_kind(kind.get("entropy", "shannon"), kind.get("q", 2.0))
+    # fluctuation-based patterns are the class changes z[t + delay] - z[t], one of 2 * classes - 1 values
+    n_symbols, length = (2 * classes - 1, order - 1) if fluctuation else (classes, order)
     return x, {
         "classes": classes,
         "order": order,
         "delay": delay,
         "mapping": mapping,
-        "reference": reference,
+        "reference": mapping_reference(x, mapping),
         "normalize": normalize,
+        "fluctuation": fluctuation,
+        "n_symbols": n_symbols,
+        "length": length,
+        **kind,
     }
 
 
-def pattern_space_fits(classes, order):
-    """Return True when every pattern has an int64 id, i.e. classes ** order <= 2 ** 63."""
-    # compare logs first: classes ** order can be an enormous integer
-    return order * math.log2(classes) <= 62 or int(classes) ** int(order) <= 2**63
+def pattern_space_fits(n_symbols, length):
+    """Return True when every pattern has an int64 id, i.e. n_symbols ** length <= 2 ** 63."""
+    # compare logs first: n_symbols ** length can be an enormous integer
+    return length * math.log2(n_symbols) <= 62 or int(n_symbols) ** int(length) <= 2**63
 
 
-def dispersion_patterns(x, classes, order, delay, mapping, reference, **_):  # noqa: PLR0913
+def dispersion_patterns(x, *, classes, delay, mapping, reference, fluctuation, n_symbols, length, **_):
     """Return the dispersion pattern of every window: integer ids, or rows for huge pattern spaces.
 
     The series is mapped to classes with the mean and std (or minimum and range) of the original series.
+    With fluctuation=True a pattern is the sequence of class changes inside the window.
 
     """
-    z = map_to_classes(x, classes, mapping, reference)
-    if not pattern_space_fits(classes, order):
+    symbols = map_to_classes(x, classes, mapping, reference) - 1  # labels 0 .. classes - 1
+    if fluctuation:
+        symbols = symbols[delay:] - symbols[:-delay] + (classes - 1)  # changes, shifted to 0 .. 2 * classes - 2
+    if not pattern_space_fits(n_symbols, length):
         # identical rows are counted later; integer ids would overflow int64
-        return time_delay_embedding(z, order, delay), None
+        return time_delay_embedding(symbols, length, delay), None
 
-    # encode each pattern as a base-`classes` integer
-    n_win = len(z) - (order - 1) * delay
-    z = z - 1  # labels 0 .. classes - 1
-    ids = z[:n_win].copy()
-    for k in range(1, order):
+    # encode each pattern as a base-`n_symbols` integer
+    n_win = len(symbols) - (length - 1) * delay
+    ids = symbols[:n_win].copy()
+    for k in range(1, length):
         s = k * delay
-        ids *= classes
-        ids += z[s : s + n_win]
+        ids *= n_symbols
+        ids += symbols[s : s + n_win]
     return ids, None
 
 
-def dispersion_value(stats, classes, order, normalize, **_):
-    """Return the dispersion entropy in bits (or normalized) from the patterns."""
+def pattern_counts(stats, n_symbols, length):
+    """Count the patterns and return (counts, size of the pattern space)."""
     patterns, weights = stats
+    n_patterns = int(n_symbols) ** int(length) if pattern_space_fits(n_symbols, length) else None
     # count_ids uses np.bincount for small pattern spaces and np.unique for large ones
-    n_patterns = int(classes) ** int(order) if pattern_space_fits(classes, order) else None
-    de = entropy_bits(count_patterns(patterns, n_patterns, weights))
+    return count_patterns(patterns, n_patterns, weights), float(n_symbols) ** length
+
+
+def dispersion_value(stats, n_symbols, length, normalize, entropy="shannon", q=2.0, **_):
+    """Return the dispersion entropy from the patterns (bits, or no unit for Tsallis)."""
+    counts, n_patterns = pattern_counts(stats, n_symbols, length)
+    de = generalized_entropy(counts, entropy, q)
     if normalize and de > 0.0:
-        de /= order * math.log2(classes)
+        de /= max_generalized_entropy(n_patterns, entropy, q)
     return de
 
 
+def reverse_dispersion_value(stats, n_symbols, length, normalize, **_):
+    """Return sum over all patterns of (p - 1 / K) ** 2 = sum p ** 2 - 1 / K, the distance to white noise."""
+    counts, n_patterns = pattern_counts(stats, n_symbols, length)
+    p = counts[counts > 0] / counts.sum()
+    rde = float(np.dot(p, p)) - 1.0 / n_patterns
+    if normalize:
+        rde /= 1.0 - 1.0 / n_patterns
+    return rde if rde > 0.0 else 0.0
+
+
 DISPERSION = Measure(prepare_dispersion, dispersion_patterns, dispersion_value, window_length, pool_patterns)
+REVERSE_DISPERSION = Measure(
+    prepare_dispersion, dispersion_patterns, reverse_dispersion_value, window_length, pool_patterns
+)
 
 
-def dispersion_entropy(  # noqa: PLR0913
+def dispersion_entropy(
     time_series: ArrayLike,
     classes: int = 3,
     order: int = 3,
     delay: int = 1,
     mapping: Literal["ncdf", "linear"] = "ncdf",
     normalize: bool = False,
+    *,
+    fluctuation: bool = False,
+    entropy: Literal["shannon", "renyi", "tsallis"] = "shannon",
+    q: float = 2.0,
 ) -> float:
     """Calculate Dispersion Entropy (DispEn).
 
@@ -230,8 +267,18 @@ def dispersion_entropy(  # noqa: PLR0913
         - "linear": Linear min-max normalization.
         Values exactly on a class boundary go to the higher class.
     normalize : bool, default=False
-        If True, divide the entropy by log2(classes**order) to normalize
-        the metric between 0 and 1.
+        If True, divide by the largest value over all patterns (log2(classes ** order) for Shannon
+        and Renyi), so the result is between 0 and 1.
+    fluctuation : bool, default=False
+        Keyword-only. Fluctuation-based dispersion entropy [2]: a pattern is the sequence of the
+        order - 1 class changes inside the window (one of (2 * classes - 1) ** (order - 1)), which
+        ignores the absolute level. Needs order >= 2.
+    entropy : {"shannon", "renyi", "tsallis"}, default="shannon"
+        Keyword-only. Entropy of the pattern distribution: Shannon (bits), Renyi of order q (bits)
+        or Tsallis of index q (no unit).
+    q : float, default=2.0
+        Keyword-only. Order of the Renyi or index of the Tsallis entropy (q > 0, q != 1); unused for
+        Shannon.
 
     Returns
     -------
@@ -243,17 +290,20 @@ def dispersion_entropy(  # noqa: PLR0913
     ------
     TypeError
         If classes, order, or delay is not an integer (booleans excluded),
-        mapping is not a string, or normalize is not a bool.
+        mapping or entropy is not a string, or normalize or fluctuation is not a bool.
     ValueError
         If time_series is not 1D, contains non-finite values, or is too short;
         classes, order, or delay is below its minimum of 2, 1, or 1,
-        respectively; or mapping is not 'ncdf' or 'linear' (case-insensitive).
+        respectively; mapping is not 'ncdf' or 'linear' (case-insensitive);
+        order < 2 with fluctuation=True; or entropy or q is invalid.
 
     References
     ----------
     .. [1] Rostaghi, M., & Azami, H. (2016). Dispersion entropy: A new efficient
            approach to measure the complexity of time series. IEEE Signal
            Processing Letters, 23(5), 610-614.
+    .. [2] Azami, H., & Escudero, J. (2018). Amplitude- and fluctuation-based dispersion
+           entropy. Entropy, 20(3), 210.
 
     Examples
     --------
@@ -263,7 +313,81 @@ def dispersion_entropy(  # noqa: PLR0913
     0.667
 
     """
-    return DISPERSION(time_series, classes=classes, order=order, delay=delay, mapping=mapping, normalize=normalize)
+    return DISPERSION(
+        time_series,
+        classes=classes,
+        order=order,
+        delay=delay,
+        mapping=mapping,
+        normalize=normalize,
+        fluctuation=fluctuation,
+        entropy=entropy,
+        q=q,
+    )
 
 
 register(dispersion_entropy, DISPERSION)
+
+
+def reverse_dispersion_entropy(
+    time_series: ArrayLike,
+    classes: int = 3,
+    order: int = 3,
+    delay: int = 1,
+    mapping: Literal["ncdf", "linear"] = "ncdf",
+    normalize: bool = False,
+    *,
+    fluctuation: bool = False,
+) -> float:
+    """Calculate reverse dispersion entropy (RDE): the distance of the dispersion patterns from white noise.
+
+    RDE = sum over all K possible patterns of (p - 1 / K) ** 2 = sum p ** 2 - 1 / K, with unobserved
+    patterns included. It is 0 for a uniform pattern distribution (white noise) and grows with
+    regularity, the reverse of dispersion entropy.
+
+    Parameters
+    ----------
+    time_series : list | np.ndarray
+        One-dimensional series of finite values with at least (order - 1) * delay + 1 samples.
+    classes, order, delay, mapping
+        As in `dispersion_entropy`.
+    normalize : bool, default=False
+        If True, divide by 1 - 1 / K, the value for a single pattern, so the result is between 0 and 1.
+    fluctuation : bool, default=False
+        Keyword-only. Use the fluctuation-based patterns of `dispersion_entropy`; K is then
+        (2 * classes - 1) ** (order - 1).
+
+    Returns
+    -------
+    rde : float
+        Reverse dispersion entropy (no unit), at least 0.
+
+    Raises
+    ------
+    TypeError, ValueError
+        As in `dispersion_entropy`.
+
+    References
+    ----------
+    .. [1] Li, Y., Gao, X., & Wang, L. (2019). Reverse dispersion entropy: A new complexity measure
+           for sensor signal. Sensors, 19(23), 5203.
+
+    Examples
+    --------
+    >>> x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    >>> round(reverse_dispersion_entropy(x, classes=3, order=2, normalize=True), 3)
+    0.167
+
+    """
+    return REVERSE_DISPERSION(
+        time_series,
+        classes=classes,
+        order=order,
+        delay=delay,
+        mapping=mapping,
+        normalize=normalize,
+        fluctuation=fluctuation,
+    )
+
+
+register(reverse_dispersion_entropy, REVERSE_DISPERSION)

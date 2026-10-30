@@ -3,9 +3,10 @@ import unittest
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-from pyentrp import _sample
+from pyentrp import _matching
 from pyentrp import entropy as ent
-from pyentrp._sample import band_blocks, count_matches_banded, count_matches_dense, count_template_matches
+from pyentrp._matching import band_blocks, banded_blocks, dense_blocks
+from pyentrp._sample import count_template_matches
 from tests._entropy_test_data import TS_SAMPLE_ENTROPY
 from tests._template_match_reference import _brute_match_counts
 
@@ -46,7 +47,7 @@ class TestTemplateMatches(unittest.TestCase):
             self.assertEqual(counts[sample_length], n_full)
 
 
-def _both_strategies(x, sample_length, tolerance):
+def _both_strategies(x, sample_length, tolerance, inclusive=False):
     """Return the counts of the dense and of the banded strategy, forced."""
     x = np.asarray(x, dtype=float)
     n = len(x)
@@ -54,11 +55,14 @@ def _both_strategies(x, sample_length, tolerance):
     dense[0] = banded[0] = n * (n - 1) / 2
     n_win = n - sample_length + 1
     if n_win > 1:
-        count_matches_dense(x, sample_length, tolerance, dense)
+        for k, _rows, _cols, _matches, count in dense_blocks(x, sample_length, tolerance, inclusive):
+            dense[k] += count
         windows = sliding_window_view(x, sample_length)[:n_win]
         order = np.argsort(windows[:, 0], kind="stable")
         cols = [np.ascontiguousarray(windows[order, k]) for k in range(sample_length)]
-        count_matches_banded(cols, tolerance, band_blocks(cols[0], tolerance), banded)
+        blocks = band_blocks(cols[0], tolerance)
+        for k, _rows, _cols, _matches, count in banded_blocks(cols, tolerance, blocks, inclusive):
+            banded[k] += count
     return dense, banded
 
 
@@ -107,14 +111,14 @@ class TestMatchingStrategies(unittest.TestCase):
         """Use the banded search for typical tolerances on long series, and all pairs otherwise."""
         x = np.random.default_rng(0).standard_normal(2000)
         calls = []
-        original = _sample.count_matches_banded
+        original = _matching.banded_blocks
         try:
-            _sample.count_matches_banded = lambda *a: calls.append("banded") or original(*a)
+            _matching.banded_blocks = lambda *a: calls.append("banded") or original(*a)
             count_template_matches(x, 3, 0.2 * np.std(x))
             count_template_matches(x, 3, 2.0 * np.std(x))
             count_template_matches(x[:300], 3, 0.2 * np.std(x))
         finally:
-            _sample.count_matches_banded = original
+            _matching.banded_blocks = original
         self.assertEqual(calls, ["banded"])
 
 

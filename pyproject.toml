@@ -136,6 +136,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.pylint]
+max-args = 10
 max-positional-args = 6
 
 [tool.ruff.lint.per-file-ignores]
