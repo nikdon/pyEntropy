@@ -7,16 +7,19 @@
 [![License](https://img.shields.io/github/license/nikdon/pyEntropy)](https://github.com/nikdon/pyEntropy/blob/master/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17727789.svg)](https://doi.org/10.5281/zenodo.17727789)
 
-**pyEntropy** (PyPI and import name: `pyentrp`) computes **sample entropy**, **permutation entropy**,
-**fuzzy entropy**, **dispersion entropy** and **Shannon entropy** of one-dimensional time series. Every measure
-except Shannon entropy also has multiscale, composite multiscale and refined composite multiscale versions. Typical uses are EEG/ECG and heart-rate variability, vibration and condition
-monitoring, and finance.
+**pyEntropy** (PyPI and import name: `pyentrp`) computes **sample**, **fuzzy**, **permutation**,
+**weighted permutation**, **dispersion** and **Shannon** entropy of one-dimensional time series, with multiscale,
+composite multiscale and refined composite multiscale versions of all but Shannon entropy. Typical uses are EEG/ECG and heart-rate variability, vibration and
+condition monitoring, and finance.
 
+- **Accurate.** Agrees with EntropyHub, NeuroKit2 and antropy to 1e-12 wherever the definitions match
+  ([details](#agreement-with-other-libraries)), and documents every place where they differ.
+- **Fast.** Vectorized NumPy throughout; sample entropy compares only nearby templates ([timings](#performance)).
 - **One dependency: NumPy.**
-- **Fast.** See ([timings](#performance)).
-- **Tested.** See the [test suite](#tests) for known values, edge cases and mathematical equivalences.
+- **Typed.** Type hints for the whole public API (PEP 561), checked with [pyrefly](https://pyrefly.org) in CI.
 - **Documented.** Each function lists its parameters, units and the paper it implements.
-- **Typed.** The public API has type hints (PEP 561), checked with [pyrefly](https://pyrefly.org) in CI.
+
+Upgrading from 2.x? See [Migrating from 2.x](#migrating-from-2x).
 
 ## Install
 
@@ -49,7 +52,8 @@ white noise  SampEn=2.202  PermEn=0.998
 sine wave    SampEn=0.248  PermEn=0.491
 ```
 
-Lower values mean a more regular signal. Multiscale entropy returns one value per scale:
+Lower values mean a more regular signal. `sample_entropy` returns SampEn for every template length up to m,
+so `[-1]` is SampEn(m). Multiscale entropy returns one value per scale:
 
 ```python
 mse = pe.multiscale_entropy(noise, m=2, tolerance=0.2 * np.std(noise), scale=5)
@@ -64,6 +68,38 @@ scale 3: 1.602
 scale 4: 1.655
 scale 5: 1.502
 ```
+
+## Supported measures
+
+| Measure | Function | Unit | Multiscale | Reference |
+|---|---|---|---|---|
+| Shannon entropy | `shannon_entropy` | bits | — | [Shannon (1948)](https://doi.org/10.1002/j.1538-7305.1948.tb01338.x) |
+| Sample entropy | `sample_entropy` | nats | all three; shortcuts `multiscale_entropy` (MSE), `composite_multiscale_entropy` (CMSE), `rcmse` (RCMSE, alias `refined_composite_multiscale_entropy`) | [Richman & Moorman (2000)](https://doi.org/10.1152/ajpheart.2000.278.6.H2039) |
+| Permutation entropy | `permutation_entropy` | bits, or 0-1 with `normalize=True` | all three; shortcut `multiscale_permutation_entropy` ([Morabito et al. (2012)](https://doi.org/10.3390/e14071186)) | [Bandt & Pompe (2002)](https://doi.org/10.1103/PhysRevLett.88.174102) |
+| Weighted permutation entropy | `weighted_permutation_entropy` | bits, or 0-1 with `normalize=True` | all three | [Fadlallah et al. (2013)](https://doi.org/10.1103/PhysRevE.87.022911) |
+| Fuzzy entropy | `fuzzy_entropy` | nats | all three | [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025) |
+| Dispersion entropy | `dispersion_entropy` | bits, or 0-1 with `normalize=True` | all three | [Rostaghi & Azami (2016)](https://doi.org/10.1109/LSP.2016.2542881) |
+
+"All three" means `multiscale`, `composite_multiscale` and `refined_composite_multiscale` (see
+[Multiscale analysis](#multiscale-analysis)); results have the unit of the measure.
+
+Utilities: `time_delay_embedding(x, order, delay)` returns the delay-embedded windows, and
+`util_granulate_time_series(x, scale)` the coarse-grained series used by the multiscale methods.
+
+## Choosing a measure
+
+| Measure | Cost | Looks at | Good for | Watch out for |
+|---|---|---|---|---|
+| Sample entropy | O(n²) | amplitude patterns within a tolerance | the standard regularity measure in physiology | inf or NaN when no templates match (short or very regular series) |
+| Fuzzy entropy | O(n²), the slowest | the same, with a smooth similarity | short or noisy series; varies smoothly with the tolerance | cost on long series |
+| Permutation entropy | O(n) | the order of values only | long series, speed; unchanged by any monotonic transform of the data | ignores amplitude; needs n much larger than `order!` |
+| Weighted permutation entropy | O(n) | order of values, weighted by local variance | like permutation entropy, when amplitude matters | as permutation entropy |
+| Dispersion entropy | O(n) | amplitude classes and their order | fast amplitude-aware alternative to sample entropy | needs n much larger than `classes ** order` |
+| Shannon entropy | O(n log n) | the distribution of values, not their order | symbols and discrete data | no time structure |
+
+Units differ between measures: sample and fuzzy entropy are in nats, the others in bits, so compare values of the
+same measure and parameters only. The default tolerance of sample entropy is `0.1 * std(x)`, while most of the
+literature uses `0.2 * std(x)`; pass `tolerance=` explicitly when you compare with published values.
 
 ## Multiscale analysis
 
@@ -92,23 +128,6 @@ pe.refined_composite_multiscale(noise, pe.dispersion_entropy, scale=5, classes=6
 - `multiscale_entropy`, `composite_multiscale_entropy`, `rcmse` and `multiscale_permutation_entropy` remain as
   shortcuts for these functions with sample and permutation entropy.
 
-## Supported measures
-
-| Measure | Function | Unit | Multiscale | Reference |
-|---|---|---|---|---|
-| Shannon entropy | `shannon_entropy` | bits | — | [Shannon (1948)](https://doi.org/10.1002/j.1538-7305.1948.tb01338.x) |
-| Sample entropy | `sample_entropy` | nats | all three; shortcuts `multiscale_entropy` (MSE), `composite_multiscale_entropy` (CMSE), `rcmse` (RCMSE, alias `refined_composite_multiscale_entropy`) | [Richman & Moorman (2000)](https://doi.org/10.1152/ajpheart.2000.278.6.H2039) |
-| Permutation entropy | `permutation_entropy` | bits, or 0-1 with `normalize=True` | all three; shortcut `multiscale_permutation_entropy` ([Morabito et al. (2012)](https://doi.org/10.3390/e14071186)) | [Bandt & Pompe (2002)](https://doi.org/10.1103/PhysRevLett.88.174102) |
-| Weighted permutation entropy | `weighted_permutation_entropy` | bits, or 0-1 with `normalize=True` | all three | [Fadlallah et al. (2013)](https://doi.org/10.1103/PhysRevE.87.022911) |
-| Fuzzy entropy | `fuzzy_entropy` | nats | all three | [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025) |
-| Dispersion entropy | `dispersion_entropy` | bits, or 0-1 with `normalize=True` | all three | [Rostaghi & Azami (2016)](https://doi.org/10.1109/LSP.2016.2542881) |
-
-"All three" means `multiscale`, `composite_multiscale` and `refined_composite_multiscale` (see
-[Multiscale analysis](#multiscale-analysis)); results have the unit of the measure.
-
-Utilities: `time_delay_embedding(x, order, delay)` returns the delay-embedded windows, and
-`util_granulate_time_series(x, scale)` the coarse-grained series used by the multiscale methods.
-
 ## Parameters
 
 - `m` is the embedding dimension for sample, multiscale and fuzzy entropy: templates of length m are compared with
@@ -123,7 +142,7 @@ Utilities: `time_delay_embedding(x, order, delay)` returns the delay-embedded wi
 - Fuzzy entropy uses the membership function `exp(-(d / r)**exponent)` [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025).
 - Ties in permutation entropy are ranked by position (stable ordering).
 
-### Migrating from 2.x
+## Migrating from 2.x
 
 The old names still work in 3.x with a `DeprecationWarning` and will be removed in 4.0.
 
@@ -136,36 +155,56 @@ The old names still work in 3.x with a `DeprecationWarning` and will be removed 
 | `time_delay_embedding` | `embedding_dimension=` | `order=` |
 | `util_pattern_space(x, lag, dim)` | | `time_delay_embedding(np.asarray(x, dtype=float), dim, lag).copy()` |
 
+## Agreement with other libraries
+
+[`benchmarks/crosscheck.py`](benchmarks/crosscheck.py) compares pyentrp with EntropyHub 2.0, NeuroKit2 0.2.13 and
+antropy 0.2.3 on three signals: sample, permutation, weighted permutation, dispersion and fuzzy entropy, MSE and MPE
+all agree to 1e-12 (most to 1e-15). Where results differ, the definitions differ, and each case was checked by
+reproducing the other library exactly:
+
+- Composite MSE and MPE: EntropyHub cuts every shifted series to the same length; pyentrp keeps every complete block.
+- Multiscale dispersion entropy: EntropyHub maps each coarse-grained series with its own mean and std; pyentrp keeps
+  those of the original series, as Azami's reference code does.
+- Composite and refined composite MSE in NeuroKit2 downsample (time-shift MSE) instead of averaging.
+- Dispersion entropy in NeuroKit2 uses the sample std (ddof=1) and divides an entropy in bits by ln(c^m).
+- Fuzzy entropy in NeuroKit2 counts each template as matching itself.
+
+```bash
+pip install EntropyHub neurokit2 antropy
+python -m benchmarks.crosscheck
+```
+
 ## Performance
 
-pyentrp 2.3.0, Python 3.13.18, NumPy 2.2.6, Apple M4 Pro. White noise, best of up to 3 timeit repeats (calls over 2s are timed once), each benchmark in its own single-threaded process.
+pyentrp 3.0.0, Python 3.13.18, NumPy 2.2.6, Apple M4 Pro. White noise, best of up to 3 timeit repeats (calls over 2 s
+are timed once), each benchmark in its own single-threaded process. Sample and fuzzy entropy use r = 0.2 std.
 
 | Function | N = 1,000 | N = 10,000 | N = 100,000 |
 |---|---|---|---|
-| `shannon_entropy (10 quantile bins)` | 10 µs | 40 µs | 319 µs |
-| `permutation_entropy (order 3)` | 8 µs | 32 µs | 256 µs |
-| `permutation_entropy (order 6)` | 21 µs | 79 µs | 639 µs |
-| `weighted_permutation_entropy (order 3)` | 12 µs | 53 µs | 441 µs |
-| `multiscale_permutation_entropy (order 3, 5 scales)` | 52 µs | 172 µs | 1.3 ms |
-| `dispersion_entropy (6 classes, order 3)` | 29 µs | 90 µs | 619 µs |
-| `composite_multiscale permutation_entropy (order 3, scale 5)` | 153 µs | 469 µs | 3.5 ms |
-| `refined_composite_multiscale dispersion_entropy (6 classes, order 3, scale 5)` | 251 µs | 742 µs | 5.3 ms |
-| `sample_entropy (m=2)` | 477 µs | 16.1 ms | 1.4 s |
-| `multiscale_entropy (m=2, 5 scales)` | 1.0 ms | 32.5 ms | 2.5 s |
-| `composite_multiscale_entropy (m=2, scale 5)` | 2.0 ms | 64.3 ms | 4.5 s |
-| `rcmse (m=2, scale 5)` | 2.0 ms | 64.0 ms | 4.5 s |
-| `fuzzy_entropy (m=2)` | 4.2 ms | 351.4 ms | 29.8 s |
+| `shannon_entropy (10 quantile bins)` | 10 µs | 39 µs | 313 µs |
+| `permutation_entropy (order 3)` | 11 µs | 35 µs | 264 µs |
+| `permutation_entropy (order 6)` | 24 µs | 83 µs | 649 µs |
+| `weighted_permutation_entropy (order 3)` | 15 µs | 57 µs | 452 µs |
+| `multiscale_permutation_entropy (order 3, 5 scales)` | 55 µs | 172 µs | 1.3 ms |
+| `dispersion_entropy (6 classes, order 3)` | 29 µs | 90 µs | 624 µs |
+| `composite_multiscale permutation_entropy (order 3, scale 5)` | 160 µs | 480 µs | 3.5 ms |
+| `refined_composite_multiscale dispersion_entropy (6 classes, order 3, scale 5)` | 256 µs | 751 µs | 5.3 ms |
+| `sample_entropy (m=2)` | 456 µs | 15.5 ms | 1.4 s |
+| `multiscale_entropy (m=2, 5 scales)` | 964 µs | 31.2 ms | 2.4 s |
+| `composite_multiscale_entropy (m=2, scale 5)` | 2.0 ms | 64.0 ms | 4.4 s |
+| `rcmse (m=2, scale 5)` | 2.0 ms | 64.0 ms | 4.4 s |
+| `fuzzy_entropy (m=2)` | 4.1 ms | 343.6 ms | 29.5 s |
+
+Reproduce with `python -m benchmarks.bench --sizes 1000 10000 100000`.
 
 ## Tests
-
-Run the test suite from the repository root:
 
 ```bash
 python -m unittest discover
 ```
 
 The tests cover known values and input validation, constant, sinusoidal and noisy signals, mathematical equivalences,
-and brute-force or manually counted reference cases for template matching, RCMSE, fuzzy entropy and dispersion entropy.
+brute-force reference counts, and the docstring examples.
 
 ## Citing
 
@@ -174,16 +213,14 @@ If pyentrp contributes to your research, please cite it. GitHub's "Cite this rep
 
 ```bibtex
 @software{pyentrp,
-  author  = {Donets, Nikolay},
-  title   = {pyEntropy (pyentrp): entropy measures for time series in Python},
-  version = {2.3.0},
-  year    = {2026},
-  doi     = {10.5281/zenodo.17727789},
-  url     = {https://github.com/nikdon/pyEntropy}
+  author = {Donets, Nikolay},
+  title  = {pyEntropy (pyentrp): entropy measures for time series in Python},
+  doi    = {10.5281/zenodo.17727789},
+  url    = {https://github.com/nikdon/pyEntropy}
 }
 ```
 
-Please also cite the original paper of each measure you use (links in the table above).
+Please also cite the original paper of each measure you use (links in [Supported measures](#supported-measures)).
 
 ## Acknowledgements
 
@@ -193,7 +230,18 @@ Samuel Dotson contributed weighted permutation entropy (2021).
 ## Contributing
 
 Bug reports, fixes and new measures are welcome: open an [issue](https://github.com/nikdon/pyEntropy/issues) or a
-pull request.
+pull request. To set up and check a change:
+
+```bash
+poetry install
+poetry run pre-commit install        # ruff, pyrefly and commit message checks on commit
+poetry run python -m unittest discover
+poetry run ruff check . && poetry run ruff format --check . && poetry run pyrefly check
+python -m benchmarks.bench --sizes 1000 10000   # for changes that can affect speed
+```
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/); releases are cut with
+commitizen.
 
 ## License
 
