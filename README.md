@@ -80,7 +80,7 @@ pe.refined_composite_multiscale(noise, pe.dispersion_entropy, scale=5, classes=6
 |---|---|---|
 | `multiscale` | the measure of the series averaged over blocks of k samples | [Costa et al. (2002)](https://doi.org/10.1103/PhysRevLett.89.068102) |
 | `composite_multiscale` | the mean of the measure over the k coarse-grainings that start at samples 1..k | [Wu et al. (2013)](https://doi.org/10.3390/e15031069) |
-| `refined_composite_multiscale` | the measure of the k coarse-grainings pooled together: summed match counts or similarities, averaged pattern probabilities | [Wu et al. (2014)](https://doi.org/10.1016/j.physleta.2014.03.034), [Humeau-Heurtier et al. (2015)](https://doi.org/10.1109/LSP.2015.2482603), [Azami et al. (2017)](https://doi.org/10.1109/TBME.2017.2679136) |
+| `refined_composite_multiscale` | the measure of the k coarse-grainings pooled together: summed match counts or similarities, averaged pattern probabilities | [Wu et al. (2014)](https://doi.org/10.1016/j.physleta.2014.03.034), [Humeau-Heurtier et al. (2015)](https://doi.org/10.1109/LSP.2015.2482603), [Azami & Escudero (2017)](https://doi.org/10.1016/j.physa.2016.07.077), [Azami et al. (2017)](https://doi.org/10.1109/TBME.2017.2679136) |
 
 - The measure can be `sample_entropy`, `fuzzy_entropy`, `permutation_entropy`, `weighted_permutation_entropy` or
   `dispersion_entropy`. `multiscale` and `composite_multiscale` also accept any function `f(series, **params) -> float`.
@@ -94,18 +94,20 @@ pe.refined_composite_multiscale(noise, pe.dispersion_entropy, scale=5, classes=6
 
 ## Supported measures
 
-| Measure | Function | Unit | Reference |
-|---|---|---|---|
-| Shannon entropy | `shannon_entropy` | bits | [Shannon (1948)](https://doi.org/10.1002/j.1538-7305.1948.tb01338.x) |
-| Sample entropy | `sample_entropy` | nats | [Richman & Moorman (2000)](https://doi.org/10.1152/ajpheart.2000.278.6.H2039) |
-| Multiscale entropy (MSE) | `multiscale_entropy` | nats | [Costa et al. (2002)](https://doi.org/10.1103/PhysRevLett.89.068102) |
-| Composite MSE (CMSE) | `composite_multiscale_entropy` | nats | [Wu et al. (2013)](https://doi.org/10.3390/e15031069) |
-| Refined composite MSE (RCMSE) | `rcmse` (alias `refined_composite_multiscale_entropy`) | nats | [Wu et al. (2014)](https://doi.org/10.1016/j.physleta.2014.03.034) |
-| Permutation entropy | `permutation_entropy` | bits, or 0-1 with `normalize=True` | [Bandt & Pompe (2002)](https://doi.org/10.1103/PhysRevLett.88.174102) |
-| Multiscale permutation entropy | `multiscale_permutation_entropy` | bits | [Morabito et al. (2012)](https://doi.org/10.3390/e14071186) |
-| Weighted permutation entropy | `weighted_permutation_entropy` | bits, or 0-1 with `normalize=True` | [Fadlallah et al. (2013)](https://doi.org/10.1103/PhysRevE.87.022911) |
-| Fuzzy entropy | `fuzzy_entropy` | nats | [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025) |
-| Dispersion entropy | `dispersion_entropy` | bits, or 0-1 with `normalize=True` | [Rostaghi & Azami (2016)](https://doi.org/10.1109/LSP.2016.2542881) |
+| Measure | Function | Unit | Multiscale | Reference |
+|---|---|---|---|---|
+| Shannon entropy | `shannon_entropy` | bits | — | [Shannon (1948)](https://doi.org/10.1002/j.1538-7305.1948.tb01338.x) |
+| Sample entropy | `sample_entropy` | nats | all three; shortcuts `multiscale_entropy` (MSE), `composite_multiscale_entropy` (CMSE), `rcmse` (RCMSE, alias `refined_composite_multiscale_entropy`) | [Richman & Moorman (2000)](https://doi.org/10.1152/ajpheart.2000.278.6.H2039) |
+| Permutation entropy | `permutation_entropy` | bits, or 0-1 with `normalize=True` | all three; shortcut `multiscale_permutation_entropy` ([Morabito et al. (2012)](https://doi.org/10.3390/e14071186)) | [Bandt & Pompe (2002)](https://doi.org/10.1103/PhysRevLett.88.174102) |
+| Weighted permutation entropy | `weighted_permutation_entropy` | bits, or 0-1 with `normalize=True` | all three | [Fadlallah et al. (2013)](https://doi.org/10.1103/PhysRevE.87.022911) |
+| Fuzzy entropy | `fuzzy_entropy` | nats | all three | [Chen et al. (2007)](https://doi.org/10.1109/TNSRE.2007.897025) |
+| Dispersion entropy | `dispersion_entropy` | bits, or 0-1 with `normalize=True` | all three | [Rostaghi & Azami (2016)](https://doi.org/10.1109/LSP.2016.2542881) |
+
+"All three" means `multiscale`, `composite_multiscale` and `refined_composite_multiscale` (see
+[Multiscale analysis](#multiscale-analysis)); results have the unit of the measure.
+
+Utilities: `time_delay_embedding(x, order, delay)` returns the delay-embedded windows, and
+`util_granulate_time_series(x, scale)` the coarse-grained series used by the multiscale methods.
 
 ## Parameters
 
