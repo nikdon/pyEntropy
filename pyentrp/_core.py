@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from typing import TYPE_CHECKING, Any
 
@@ -164,6 +165,35 @@ def entropy_bits(weights):
     p = w / w.sum()
     h = float(-np.dot(p, np.log2(p)))
     return h if h > 0.0 else 0.0
+
+
+def generalized_entropy(weights, kind="shannon", q=2.0):
+    """Return the Shannon, Renyi or Tsallis entropy of the distribution proportional to `weights`.
+
+    Shannon and Renyi entropies are in bits; the Tsallis entropy has no unit. Zero weights are
+    ignored. Gives +0.0 for a single symbol or no weight at all.
+
+    - Shannon: -sum p log2 p
+    - Renyi of order q: log2(sum p ** q) / (1 - q)
+    - Tsallis of index q: (1 - sum p ** q) / (q - 1)
+
+    """
+    if kind == "shannon":
+        return entropy_bits(weights)
+    w = weights[weights > 0]
+    if w.size == 0:
+        return 0.0
+    p = w / w.sum()
+    power_sum = float(np.sum(p**q))
+    h = math.log2(power_sum) / (1.0 - q) if kind == "renyi" else (1.0 - power_sum) / (q - 1.0)
+    return h if h > 0.0 else 0.0
+
+
+def max_generalized_entropy(n_states, kind="shannon", q=2.0):
+    """Return the largest value of `generalized_entropy` over `n_states` symbols (the uniform distribution)."""
+    if kind == "tsallis":
+        return (1.0 - float(n_states) ** (1.0 - q)) / (q - 1.0)
+    return math.log2(n_states)
 
 
 def shannon_entropy(time_series: ArrayLike | str) -> float:

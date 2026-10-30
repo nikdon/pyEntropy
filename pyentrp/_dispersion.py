@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from numpy.typing import ArrayLike
 
 
-def validate_dispersion_params(  # noqa: PLR0913
+def validate_dispersion_params(
     time_series,
     classes,
     order,
@@ -140,9 +140,7 @@ def map_to_classes(time_series, classes, mapping, reference=None):
     return np.clip(np.floor(classes * y).astype(np.int64) + 1, 1, classes)
 
 
-def prepare_dispersion(  # noqa: PLR0913
-    time_series, classes=3, order=3, delay=1, mapping="ncdf", normalize=False
-):
+def prepare_dispersion(time_series, classes=3, order=3, delay=1, mapping="ncdf", normalize=False):
     """Validate the input of dispersion entropy and fix the class mapping on this series."""
     x, mapping = validate_dispersion_params(time_series, classes, order, delay, mapping, normalize)
     reference = mapping_reference(x, mapping)
@@ -162,7 +160,7 @@ def pattern_space_fits(classes, order):
     return order * math.log2(classes) <= 62 or int(classes) ** int(order) <= 2**63
 
 
-def dispersion_patterns(x, classes, order, delay, mapping, reference, **_):  # noqa: PLR0913
+def dispersion_patterns(x, classes, order, delay, mapping, reference, **_):
     """Return the dispersion pattern of every window: integer ids, or rows for huge pattern spaces.
 
     The series is mapped to classes with the mean and std (or minimum and range) of the original series.
@@ -198,7 +196,7 @@ def dispersion_value(stats, classes, order, normalize, **_):
 DISPERSION = Measure(prepare_dispersion, dispersion_patterns, dispersion_value, window_length, pool_patterns)
 
 
-def dispersion_entropy(  # noqa: PLR0913
+def dispersion_entropy(
     time_series: ArrayLike,
     classes: int = 3,
     order: int = 3,

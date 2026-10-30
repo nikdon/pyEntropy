@@ -111,6 +111,42 @@ def resolve_tolerance(time_series, tolerance, factor):
     return tolerance
 
 
+def check_entropy_kind(entropy, q):
+    """Validate the kind of entropy of a distribution and its parameter q.
+
+    Raises
+    ------
+    TypeError
+        If entropy is not a string.
+    ValueError
+        If entropy is not 'shannon', 'renyi' or 'tsallis', or q is not a positive number other than 1
+        for 'renyi' and 'tsallis'.
+
+    """
+    if not isinstance(entropy, str):
+        raise TypeError(f"entropy must be a string, got {type(entropy).__name__}.")
+    if entropy not in ("shannon", "renyi", "tsallis"):
+        raise ValueError("entropy must be 'shannon', 'renyi' or 'tsallis'.")
+    if entropy != "shannon" and not (q > 0 and q != 1 and np.isfinite(q)):
+        raise ValueError("q must be a finite number > 0 other than 1 (q = 1 is the Shannon entropy).")
+
+
+def check_fraction(name, value, low_open=True, high_open=True):
+    """Validate a number in the interval between 0 and 1 (open or closed at each end).
+
+    Raises
+    ------
+    ValueError
+        If value is outside the interval (this includes NaN).
+
+    """
+    low_ok = value > 0 if low_open else value >= 0
+    high_ok = value < 1 if high_open else value <= 1
+    if not (low_ok and high_ok):
+        interval = f"{'(' if low_open else '['}0, 1{')' if high_open else ']'}"
+        raise ValueError(f"{name} must be in {interval}.")
+
+
 def check_embedding_length(time_series, order, delay):
     """Check that the series holds at least one window of `order` samples spaced `delay` apart.
 
