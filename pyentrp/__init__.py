@@ -1,7 +1,7 @@
 """Entropy measures for time series analysis."""
 
 from ._core import shannon_entropy, time_delay_embedding, util_pattern_space
-from ._dispersion import dispersion_entropy
+from ._dispersion import dispersion_entropy, reverse_dispersion_entropy
 from ._fuzzy import fuzzy_entropy
 from ._multiscale import composite_multiscale, multiscale, refined_composite_multiscale, util_granulate_time_series
 from ._ordinal import (
@@ -34,6 +34,7 @@ __all__ = [
     "rcmse",
     "refined_composite_multiscale",
     "refined_composite_multiscale_entropy",
+    "reverse_dispersion_entropy",
     "sample_entropy",
     "shannon_entropy",
     "statistical_complexity",
