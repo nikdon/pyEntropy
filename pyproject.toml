@@ -4,14 +4,46 @@ description = "A Python library for computing entropy measures for time series a
 authors = [
   { name = "Nikolay Donets", email = "nd@donets.org" }
 ]
-license = "apache-2.0"
-readme = "README.md"
-packages = [
-  {"include" = "pyentrp"}
+maintainers = [
+  { name = "Nikolay Donets", email = "nd@donets.org" }
 ]
+license = "Apache-2.0"
+readme = "README.md"
+keywords = [
+  "entropy",
+  "time series",
+  "complexity",
+  "sample entropy",
+  "permutation entropy",
+  "fuzzy entropy",
+  "dispersion entropy",
+  "multiscale entropy",
+  "composite multiscale entropy",
+  "refined composite multiscale entropy",
+]
+dynamic = ["version", "dependencies", "requires-python", "classifiers"]
+
+[project.urls]
+Homepage = "https://github.com/nikdon/pyEntropy"
+Repository = "https://github.com/nikdon/pyEntropy"
+Issues = "https://github.com/nikdon/pyEntropy/issues"
+Changelog = "https://github.com/nikdon/pyEntropy/blob/master/CHANGELOG.md"
 
 [tool.poetry]
 version = "2.3.0"
+packages = [
+  { include = "pyentrp" }
+]
+# Python version classifiers are added from the python dependency below
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Typing :: Typed",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
@@ -34,7 +66,7 @@ version_type = "pep440"
 version_provider = "poetry"
 update_changelog_on_bump = true
 version_files = [
-    "setup.py:version"
+    "CITATION.cff:^version"
 ]
 
 [build-system]
