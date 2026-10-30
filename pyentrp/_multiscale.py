@@ -274,7 +274,7 @@ def refined_composite_multiscale(time_series, measure, scale=20, **params):
     entropy is taken, which avoids undefined values on short series:
 
     - sample entropy sums the match counts (RCMSE, Wu et al. 2014);
-    - fuzzy entropy sums the mean similarities (RCMFE, Azami et al. 2017);
+    - fuzzy entropy sums the mean similarities (RCMFE, Azami & Escudero 2017);
     - permutation, weighted permutation and dispersion entropy average the pattern
       probabilities (RCMPE, Humeau-Heurtier et al. 2015; RCMDE, Azami et al. 2017).
 
@@ -316,9 +316,9 @@ def refined_composite_multiscale(time_series, measure, scale=20, **params):
     .. [2] Humeau-Heurtier, A., Wu, C.-W., & Wu, S.-D. (2015). Refined composite multiscale
            permutation entropy to overcome multiscale permutation entropy length dependence.
            IEEE Signal Processing Letters, 22(12), 2364-2367.
-    .. [3] Azami, H., Fernández, A., & Escudero, J. (2017). Refined multiscale fuzzy entropy
-           based on standard deviation for biomedical signal analysis. Medical & Biological
-           Engineering & Computing, 55(11), 2037-2052.
+    .. [3] Azami, H., & Escudero, J. (2017). Refined composite multivariate generalized
+           multiscale fuzzy entropy: A tool for complexity analysis of multichannel signals.
+           Physica A, 465, 261-276 (the univariate, mean-based case).
     .. [4] Azami, H., Rostaghi, M., Abásolo, D., & Escudero, J. (2017). Refined composite
            multiscale dispersion entropy and its application to biomedical signals. IEEE
            Transactions on Biomedical Engineering, 64(12), 2872-2879.
