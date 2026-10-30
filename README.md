@@ -16,7 +16,7 @@ monitoring, and finance.
 - **Fast.** See ([timings](#performance)).
 - **Tested.** See the [test suite](#tests) for known values, edge cases and mathematical equivalences.
 - **Documented.** Each function lists its parameters, units and the paper it implements.
-- **Typed.** The public API has type hints (PEP 561), checked with [ty](https://github.com/astral-sh/ty) in CI.
+- **Typed.** The public API has type hints (PEP 561), checked with [pyrefly](https://pyrefly.org) in CI.
 
 ## Install
 
