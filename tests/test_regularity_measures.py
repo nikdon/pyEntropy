@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 
 import pyentrp as pe
+from pyentrp._matching import count_matches_per_window, match_blocks
 from pyentrp._regularity import closest_pair_distance
 
 RNG = np.random.default_rng(13)
@@ -45,9 +46,18 @@ class TestApproximateEntropy(unittest.TestCase):
                     self.assertAlmostEqual(pe.approximate_entropy(x, m, r), _apen(x, m, r), places=12)
 
     def test_long_series_use_the_sorted_band(self):
-        """Give the same value through the sorted band search (>= 512 templates)."""
-        x = RNG.standard_normal(900)
-        self.assertAlmostEqual(pe.approximate_entropy(x, 2, 0.25), _apen(x, 2, 0.25), places=12)
+        """Give the same per-template counts and value through the sorted band search (>= 512 templates)."""
+        x = RNG.standard_normal(1200)
+        r = 0.05
+        order, _ = match_blocks(x, 3, r, inclusive=True)
+        self.assertIsNotNone(order)  # the banded strategy is the one under test
+        w = _windows(x, 3)
+        expected = np.zeros((3, len(w)), dtype=np.int64)
+        for k in range(1, 4):
+            d = np.max(np.abs(w[:, None, :k] - w[None, :, :k]), axis=2)
+            expected[k - 1] = np.count_nonzero(d <= r, axis=1) - 1
+        np.testing.assert_array_equal(count_matches_per_window(x, 3, r, inclusive=True), expected)
+        self.assertAlmostEqual(pe.approximate_entropy(x, 2, r), _apen(x, 2, r), places=12)
 
     def test_defaults_and_edge_cases(self):
         """Default to r = 0.2 std, give 0 for a constant series, and accept the shortest series."""

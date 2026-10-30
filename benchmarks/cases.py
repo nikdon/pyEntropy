@@ -126,3 +126,73 @@ def _benchmark_rcmse(data: BenchmarkData):
 @bench("fuzzy_entropy (m=2)")
 def _benchmark_fuzzy_entropy(data: BenchmarkData):
     return ent.fuzzy_entropy(data.series, 2, data.tolerance, 2)
+
+
+@bench("approximate_entropy (m=2)")
+def _benchmark_approximate_entropy(data: BenchmarkData):
+    return ent.approximate_entropy(data.series, 2, data.tolerance)
+
+
+@bench("range_entropy (m=2, r=0.2)")
+def _benchmark_range_entropy(data: BenchmarkData):
+    return ent.range_entropy(data.series, 2, 0.2)
+
+
+@bench("cosine_similarity_entropy (m=2)")
+def _benchmark_cosine_similarity_entropy(data: BenchmarkData):
+    return ent.cosine_similarity_entropy(data.series, 2)
+
+
+@bench("distribution_entropy (m=2, 512 bins)")
+def _benchmark_distribution_entropy(data: BenchmarkData):
+    return ent.distribution_entropy(data.series, 2)
+
+
+@bench("bubble_entropy (m=10)")
+def _benchmark_bubble_entropy(data: BenchmarkData):
+    return ent.bubble_entropy(data.series, 10)
+
+
+@bench("amplitude_aware_permutation_entropy (order 3)")
+def _benchmark_amplitude_aware_permutation_entropy(data: BenchmarkData):
+    return ent.amplitude_aware_permutation_entropy(data.series, 3)
+
+
+@bench("statistical_complexity (order 4)")
+def _benchmark_statistical_complexity(data: BenchmarkData):
+    return ent.statistical_complexity(data.series, 4)
+
+
+@bench("reverse_dispersion_entropy (6 classes, order 3)")
+def _benchmark_reverse_dispersion_entropy(data: BenchmarkData):
+    return ent.reverse_dispersion_entropy(data.series, 6, 3)
+
+
+@bench("slope_entropy (m=3)")
+def _benchmark_slope_entropy(data: BenchmarkData):
+    return ent.slope_entropy(data.series, 3)
+
+
+@bench("lempel_ziv_complexity (median)")
+def _benchmark_lempel_ziv_complexity(data: BenchmarkData):
+    return ent.lempel_ziv_complexity(data.series)
+
+
+@bench("corrected_conditional_entropy (6 levels)")
+def _benchmark_corrected_conditional_entropy(data: BenchmarkData):
+    return ent.corrected_conditional_entropy(data.series)
+
+
+@bench("spectral_entropy (welch)")
+def _benchmark_spectral_entropy(data: BenchmarkData):
+    return ent.spectral_entropy(data.series, method="welch")
+
+
+@bench("svd_entropy (order 3)")
+def _benchmark_svd_entropy(data: BenchmarkData):
+    return ent.svd_entropy(data.series, 3)
+
+
+@bench("wavelet_entropy (db4)")
+def _benchmark_wavelet_entropy(data: BenchmarkData):
+    return ent.wavelet_entropy(data.series)

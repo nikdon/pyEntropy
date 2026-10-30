@@ -328,22 +328,33 @@ def cosine_similarity_entropy(
     if zero_median:
         x = x - np.median(x)
 
-    coords = [x[k * delay : k * delay + n_win] for k in range(m)]
-    norms = np.sqrt(sum(c * c for c in coords))
-    # angle <= r  <=>  cos >= cos(pi r)  <=>  dot >= cos(pi r) * |u| |v|, for nonzero u and v
-    threshold = math.cos(math.pi * tolerance)
-    scaled = threshold * norms
+    coords = np.stack([x[k * delay : k * delay + n_win] for k in range(m)])
+    norms = np.sqrt(np.einsum("ij,ij->j", coords, coords))
+    # templates of zero norm have no angle: they match nothing but still count among the pairs
     valid = norms > 0
+    # unit vectors: angle <= r  <=>  cos = u . v >= cos(pi r)
+    units = coords[:, valid] / norms[valid]
+    threshold = math.cos(math.pi * tolerance)
     similar = 0
-    for start in range(0, n_win - 1, CHUNK_ROWS):
-        stop = min(start + CHUNK_ROWS, n_win - 1)
-        dot = coords[0][start:stop, None] * coords[0][None, start + 1 :]
-        for c in coords[1:]:
-            dot += c[start:stop, None] * c[None, start + 1 :]
-        hit = dot >= scaled[start:stop, None] * norms[None, start + 1 :]
-        hit &= valid[start:stop, None] & valid[None, start + 1 :]
-        hit &= np.arange(hit.shape[1])[None, :] >= np.arange(stop - start)[:, None]
-        similar += int(np.count_nonzero(hit))
+    n_valid = units.shape[1]
+    width_max = max(n_valid - 1, 0)
+    dot_buf, tmp_buf = np.empty(CHUNK_ROWS * width_max), np.empty(CHUNK_ROWS * width_max)
+    hit_buf = np.empty(CHUNK_ROWS * width_max, dtype=np.bool_)
+    below = np.tril(np.ones((CHUNK_ROWS, CHUNK_ROWS), dtype=np.bool_), -1)  # column before the row
+    for start in range(0, n_valid - 1, CHUNK_ROWS):
+        stop = min(start + CHUNK_ROWS, n_valid - 1)
+        rows, width = stop - start, n_valid - start - 1
+        dot = dot_buf[: rows * width].reshape(rows, width)
+        tmp = tmp_buf[: rows * width].reshape(rows, width)
+        hit = hit_buf[: rows * width].reshape(rows, width)
+        np.multiply(units[0, start:stop, None], units[0, None, start + 1 :], out=dot)
+        for k in range(1, m):
+            np.multiply(units[k, start:stop, None], units[k, None, start + 1 :], out=tmp)
+            dot += tmp
+        np.greater_equal(dot, threshold, out=hit)
+        # pairs whose column comes before the row are counted in an earlier block
+        sq = min(rows - 1, width)
+        similar += int(np.count_nonzero(hit)) - int(np.count_nonzero(hit[:, :sq] & below[:rows, :sq]))
 
     b = similar / (n_win * (n_win - 1) / 2)
     if b <= 0.0 or b >= 1.0:
@@ -464,14 +475,26 @@ def distribution_entropy(
         return 0.0
 
     counts = np.zeros(n_bins, dtype=np.int64)
+    columns = np.ascontiguousarray(windows.T)
+    dist_buf, tmp_buf = np.empty(CHUNK_ROWS * (n_win - 1)), np.empty(CHUNK_ROWS * (n_win - 1))
+    below = np.tril(np.ones((CHUNK_ROWS, CHUNK_ROWS), dtype=np.bool_), -1)  # column before the row
     for start in range(0, n_win - 1, CHUNK_ROWS):
         stop = min(start + CHUNK_ROWS, n_win - 1)
-        d = np.abs(windows[start:stop, None, 0] - windows[None, start + 1 :, 0])
+        rows, width = stop - start, n_win - start - 1
+        d = dist_buf[: rows * width].reshape(rows, width)
+        tmp = tmp_buf[: rows * width].reshape(rows, width)
+        np.subtract(columns[0, start:stop, None], columns[0, None, start + 1 :], out=d)
+        np.abs(d, out=d)
         for k in range(1, m):
-            np.maximum(d, np.abs(windows[start:stop, None, k] - windows[None, start + 1 :, k]), out=d)
-        later = np.arange(d.shape[1])[None, :] >= np.arange(stop - start)[:, None]
-        # np.histogram with a fixed range bins every chunk exactly as it would bin all distances at once
-        counts += np.histogram(d[later], bins=n_bins, range=(smallest, largest))[0]
+            np.subtract(columns[k, start:stop, None], columns[k, None, start + 1 :], out=tmp)
+            np.abs(tmp, out=tmp)
+            np.maximum(d, tmp, out=d)
+        # np.histogram with a fixed range bins every value exactly as it would bin all distances at once;
+        # the pairs whose column comes before the row belong to an earlier block and are taken out again
+        counts += np.histogram(d, bins=n_bins, range=(smallest, largest))[0]
+        sq = min(rows - 1, width)
+        if sq > 0:
+            counts -= np.histogram(d[:, :sq][below[:rows, :sq]], bins=n_bins, range=(smallest, largest))[0]
 
     p = counts[counts > 0] / n_pairs
     h = float(-np.dot(p, np.log2(p)))
