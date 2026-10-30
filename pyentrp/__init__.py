@@ -3,7 +3,13 @@
 from ._core import shannon_entropy, time_delay_embedding, util_pattern_space
 from ._dispersion import dispersion_entropy, reverse_dispersion_entropy
 from ._fuzzy import fuzzy_entropy
-from ._multiscale import composite_multiscale, multiscale, refined_composite_multiscale, util_granulate_time_series
+from ._multiscale import (
+    composite_multiscale,
+    hierarchical,
+    multiscale,
+    refined_composite_multiscale,
+    util_granulate_time_series,
+)
 from ._ordinal import (
     amplitude_aware_permutation_entropy,
     bubble_entropy,
@@ -39,6 +45,7 @@ __all__ = [
     "dispersion_entropy",
     "distribution_entropy",
     "fuzzy_entropy",
+    "hierarchical",
     "lempel_ziv_complexity",
     "multiscale",
     "multiscale_entropy",
