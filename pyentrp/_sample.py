@@ -1,6 +1,7 @@
 """Sample entropy and its multiscale variants (MSE, CMSE, RCMSE)."""
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 from ._multiscale import (
     Measure,
@@ -12,9 +13,21 @@ from ._multiscale import (
 )
 from ._validation import renamed, resolve_tolerance, template_length, validate_series
 
+# the sorted band search pays off from about this many windows (its setup costs more on short series)
+BANDED_MIN_WINDOWS = 512
+# and below this estimated cost (band fraction * template length, relative to comparing all pairs);
+# the measured break-even is about 1
+BANDED_MAX_COST = 0.75
 
-def count_template_matches(time_series, sample_length, tolerance, chunk_size=32):
+
+def count_template_matches(time_series, sample_length, tolerance):
     """Count template matches of lengths 0 to sample_length using Chebyshev norm.
+
+    Two exact strategies give identical counts. The banded one sorts the windows by their first
+    value: only windows within the tolerance in that value can match, and after sorting they are
+    neighbours, so only a band of pairs is compared. It is used when that band is small (typical
+    tolerances such as 0.1-0.2 std) and the series is long enough; comparing all pairs is used
+    otherwise.
 
     Parameters
     ----------
@@ -25,10 +38,6 @@ def count_template_matches(time_series, sample_length, tolerance, chunk_size=32)
     tolerance : float
         Strict upper bound on the Chebyshev distance between templates,
         in the same units as the time series.
-    chunk_size : int, optional
-        Number of templates compared against all later templates at once.
-        Larger chunks mean fewer Python-level iterations but a larger
-        temporary (about chunk_size * n * 8 bytes). Does not change the result.
 
     Returns
     -------
@@ -41,15 +50,97 @@ def count_template_matches(time_series, sample_length, tolerance, chunk_size=32)
 
     """
     # Floating point input avoids wrap-around in the differences of unsigned integer series
-    time_series = np.asarray(time_series, dtype=float)
+    x = np.asarray(time_series, dtype=float)
 
-    n = len(time_series)
+    n = len(x)
     n_win = n - sample_length + 1  # number of full-length windows
 
-    N_temp = np.zeros(sample_length + 1)
-    N_temp[0] = n * (n - 1) / 2
+    counts = np.zeros(sample_length + 1)
+    counts[0] = n * (n - 1) / 2
     if n_win <= 1:
-        return N_temp
+        return counts
+    if n_win < BANDED_MIN_WINDOWS:
+        count_matches_dense(x, sample_length, tolerance, counts)
+        return counts
+
+    windows = sliding_window_view(x, sample_length)[:n_win]
+    order = np.argsort(windows[:, 0], kind="stable")
+    sorted_windows = [np.ascontiguousarray(windows[order, k]) for k in range(sample_length)]
+    blocks = band_blocks(sorted_windows[0], tolerance)
+
+    starts, stops, ends = blocks
+    band_pairs = float(np.sum((stops - starts) * (ends - starts - 1)))
+    if band_pairs * sample_length < BANDED_MAX_COST * n_win * (n_win - 1) / 2:
+        count_matches_banded(sorted_windows, tolerance, blocks, counts)
+    else:
+        count_matches_dense(x, sample_length, tolerance, counts)
+    return counts
+
+
+def band_blocks(first, tolerance, block_size=64):
+    """Split sorted first values into blocks of rows and the end of the column band of each block.
+
+    Row p can only match columns p + 1 .. end - 1, where end is the first value more than the
+    tolerance above row p. The block's end is the one of its last row, which covers all its rows.
+
+    Returns
+    -------
+    starts, stops, ends : np.ndarray
+        Rows start .. stop - 1 of a block are compared with columns start + 1 .. end - 1.
+
+    """
+    n_win = len(first)
+    # a superset of the band: the slack covers rounding in first + tolerance, the exact test decides
+    slack = 4 * np.finfo(float).eps * (np.max(np.abs(first)) + tolerance)
+    band_end = np.searchsorted(first, first + (tolerance + slack), side="right")
+    starts = np.arange(0, n_win - 1, block_size)
+    stops = np.minimum(starts + block_size, n_win - 1)
+    ends = np.maximum(band_end[stops - 1], starts + 1)
+    return starts, stops, ends
+
+
+def count_matches_banded(sorted_windows, tolerance, blocks, counts):
+    """Add the template matches of windows sorted by their first value, comparing only the band."""
+    starts, stops, ends = blocks
+    rows_max = int(np.max(stops - starts))
+    width_max = int(np.max(ends - starts - 1))
+    if width_max <= 0:
+        return
+
+    size = rows_max * width_max
+    diff_buf, hit_buf, cur_buf = np.empty(size), np.empty(size, dtype=np.bool_), np.empty(size, dtype=np.bool_)
+    # triu[r, c] is True when c >= r, i.e. when column window start + 1 + c comes after row window start + r
+    triu = np.triu(np.ones((rows_max, rows_max), dtype=np.bool_))
+
+    for start, stop, end in zip(starts.tolist(), stops.tolist(), ends.tolist(), strict=True):
+        rows, width = stop - start, end - start - 1
+        if width <= 0:
+            continue
+        diff = diff_buf[: rows * width].reshape(rows, width)
+        hit = hit_buf[: rows * width].reshape(rows, width)
+        cur = cur_buf[: rows * width].reshape(rows, width)
+
+        # cur[r, c]: sorted windows start + r and start + 1 + c match on every value compared so far
+        for k, column in enumerate(sorted_windows):
+            np.subtract(column[start:stop, None], column[None, start + 1 : end], out=diff)
+            np.abs(diff, out=diff)
+            if k == 0:
+                np.less(diff, tolerance, out=cur)
+                sq = min(rows - 1, width)
+                if sq > 0:
+                    cur[:, :sq] &= triu[:rows, :sq]  # each unordered pair once, no self-matches
+            else:
+                np.less(diff, tolerance, out=hit)
+                cur &= hit
+            c = np.count_nonzero(cur)
+            if c == 0:
+                break
+            counts[k + 1] += c
+
+
+def count_matches_dense(x, sample_length, tolerance, counts, chunk_size=32):
+    """Add the template matches of all pairs of windows, comparing every pair once."""
+    n_win = len(x) - sample_length + 1
 
     # triu_full[r, c] is True when c >= r, i.e. when the second window starts after the first
     triu_full = np.triu(np.ones((chunk_size + sample_length - 1,) * 2, dtype=np.bool_))
@@ -62,7 +153,7 @@ def count_template_matches(time_series, sample_length, tolerance, chunk_size=32)
 
         # B[r, c] is True when |x[start + r] - x[start + 1 + c]| < tolerance. Entry (r + t, c + t)
         # is then the match of the pair (start + r, start + 1 + c) at offset t inside the templates
-        diff = np.subtract(time_series[start : end + sample_length - 1, None], time_series[None, start + 1 :])
+        diff = np.subtract(x[start : end + sample_length - 1, None], x[None, start + 1 :])
         np.abs(diff, out=diff)
         B = diff < tolerance
 
@@ -72,7 +163,7 @@ def count_template_matches(time_series, sample_length, tolerance, chunk_size=32)
             B[:, :sq] &= triu_full[: B.shape[0], :sq]
 
         cur = B[:b_len, :w_len].copy()
-        N_temp[1] += np.count_nonzero(cur)
+        counts[1] += np.count_nonzero(cur)
 
         # extend the matches one sample at a time; `cur` can only shrink
         for length in range(2, sample_length + 1):
@@ -81,9 +172,7 @@ def count_template_matches(time_series, sample_length, tolerance, chunk_size=32)
             c = np.count_nonzero(cur)
             if c == 0:
                 break
-            N_temp[length] += c
-
-    return N_temp
+            counts[length] += c
 
 
 def prepare_sample(time_series, sample_length=None, tolerance=None, *, m=None):
