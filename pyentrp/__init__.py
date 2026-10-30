@@ -25,6 +25,7 @@ from ._sample import (
     refined_composite_multiscale_entropy,
     sample_entropy,
 )
+from ._spectral import spectral_entropy, svd_entropy, wavelet_entropy
 from ._symbolic import corrected_conditional_entropy, lempel_ziv_complexity, slope_entropy
 
 __all__ = [
@@ -51,9 +52,12 @@ __all__ = [
     "sample_entropy",
     "shannon_entropy",
     "slope_entropy",
+    "spectral_entropy",
     "statistical_complexity",
+    "svd_entropy",
     "time_delay_embedding",
     "util_granulate_time_series",
     "util_pattern_space",
+    "wavelet_entropy",
     "weighted_permutation_entropy",
 ]
