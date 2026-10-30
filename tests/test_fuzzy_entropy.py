@@ -30,21 +30,21 @@ class TestFuzzyEntropy(unittest.TestCase):
     def test_fuzzy_entropy_basic(self):
         """Return finite fuzzy entropy with explicit and default tolerance."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
-        fe = ent.fuzzy_entropy(signal, sample_length=2, tolerance=0.2 * np.std(signal), n=2)
+        fe = ent.fuzzy_entropy(signal, m=2, tolerance=0.2 * np.std(signal), exponent=2)
         self.assertIsInstance(fe, float)
         self.assertTrue(np.isfinite(fe))
         self.assertGreater(fe, 0.0)
 
-        fe_default = ent.fuzzy_entropy(signal, sample_length=2)
+        fe_default = ent.fuzzy_entropy(signal, m=2)
         np.testing.assert_allclose(fe, fe_default)
 
     def test_fuzzy_entropy_deterministic_and_sinusoidal(self):
         """Return expected fuzzy entropy for deterministic signals."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
-        fe = ent.fuzzy_entropy(signal, sample_length=2)
+        fe = ent.fuzzy_entropy(signal, m=2)
         np.testing.assert_allclose(fe, 0.60045352, rtol=1e-5)
 
-        fe_ts = ent.fuzzy_entropy(TS_SAMPLE_ENTROPY, sample_length=2)
+        fe_ts = ent.fuzzy_entropy(TS_SAMPLE_ENTROPY, m=2)
         self.assertTrue(np.isfinite(fe_ts))
         self.assertGreater(fe_ts, 0.0)
 
@@ -52,11 +52,11 @@ class TestFuzzyEntropy(unittest.TestCase):
         """Agree with an independent brute-force FuzzyEn for several parameter sets."""
         local_rng = np.random.default_rng(5)
         series = local_rng.standard_normal(70)
-        for sample_length, n in ((1, 2), (2, 2), (3, 1), (2, 4)):
-            with self.subTest(sample_length=sample_length, n=n):
+        for m, exponent in ((1, 2), (2, 2), (3, 1), (2, 4)):
+            with self.subTest(m=m, exponent=exponent):
                 tol = 0.25 * np.std(series)
-                expected = _brute_fuzzy(series, sample_length, tol, n)
-                got = ent.fuzzy_entropy(series, sample_length=sample_length, tolerance=tol, n=n)
+                expected = _brute_fuzzy(series, m, tol, exponent)
+                got = ent.fuzzy_entropy(series, m=m, tolerance=tol, exponent=exponent)
                 np.testing.assert_allclose(got, expected, rtol=1e-10)
 
     def test_fuzzy_entropy_baseline_and_scale_invariance(self):
@@ -78,16 +78,16 @@ class TestFuzzyEntropy(unittest.TestCase):
         """Decrease fuzzy entropy as tolerance increases."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
         tolerances = [0.1, 0.2, 0.3, 0.4, 0.5]
-        fe_values = [ent.fuzzy_entropy(signal, sample_length=2, tolerance=tol) for tol in tolerances]
+        fe_values = [ent.fuzzy_entropy(signal, m=2, tolerance=tol) for tol in tolerances]
         for i in range(len(fe_values) - 1):
             self.assertGreater(fe_values[i], fe_values[i + 1])
 
     def test_fuzzy_entropy_varying_n(self):
         """Return finite fuzzy entropy across boundary weights."""
         signal = np.cos(np.linspace(start=0, stop=30, num=100))
-        fe_n1 = ent.fuzzy_entropy(signal, sample_length=2, n=1)
-        fe_n2 = ent.fuzzy_entropy(signal, sample_length=2, n=2)
-        fe_n4 = ent.fuzzy_entropy(signal, sample_length=2, n=4)
+        fe_n1 = ent.fuzzy_entropy(signal, m=2, exponent=1)
+        fe_n2 = ent.fuzzy_entropy(signal, m=2, exponent=2)
+        fe_n4 = ent.fuzzy_entropy(signal, m=2, exponent=4)
         for val in (fe_n1, fe_n2, fe_n4):
             self.assertTrue(np.isfinite(val))
             self.assertGreater(val, 0.0)
@@ -96,7 +96,7 @@ class TestFuzzyEntropy(unittest.TestCase):
         """Handle fuzzy entropy calculations for a long time series."""
         rng_local = np.random.default_rng(999)
         long_ts = rng_local.standard_normal(1200)
-        fe = ent.fuzzy_entropy(long_ts, sample_length=2)
+        fe = ent.fuzzy_entropy(long_ts, m=2)
         self.assertTrue(np.isfinite(fe))
         self.assertGreater(fe, 1.5)
 
@@ -104,7 +104,7 @@ class TestFuzzyEntropy(unittest.TestCase):
         """Warn and return NaN when fuzzy similarities vanish."""
         extreme_ts = [1.0, 1000.0, 100000.0, 10000000.0, 1000000000.0]
         with self.assertWarns(RuntimeWarning):
-            fe = ent.fuzzy_entropy(extreme_ts, sample_length=1, tolerance=1e-12, n=2)
+            fe = ent.fuzzy_entropy(extreme_ts, m=1, tolerance=1e-12, exponent=2)
         self.assertTrue(np.isnan(fe))
 
     def test_fuzzy_entropy_input_types(self):
@@ -112,29 +112,48 @@ class TestFuzzyEntropy(unittest.TestCase):
         list_data = [1, 3, 2, 5, 4, 7, 6, 8, 2, 4]
         np_float = np.array(list_data, dtype=float)
         np_int = np.array(list_data, dtype=int)
-        res_list = ent.fuzzy_entropy(list_data, sample_length=2)
-        res_float = ent.fuzzy_entropy(np_float, sample_length=2)
-        res_int = ent.fuzzy_entropy(np_int, sample_length=2)
+        res_list = ent.fuzzy_entropy(list_data, m=2)
+        res_float = ent.fuzzy_entropy(np_float, m=2)
+        res_int = ent.fuzzy_entropy(np_int, m=2)
         self.assertAlmostEqual(res_list, res_float)
         self.assertAlmostEqual(res_list, res_int)
-        self.assertAlmostEqual(res_list, ent.fuzzy_entropy(list_data, sample_length=np.int64(2)))
+        self.assertAlmostEqual(res_list, ent.fuzzy_entropy(list_data, m=np.int64(2)))
 
     def test_fuzzy_entropy_invalid_values(self):
         """Reject out-of-range parameters, bad shapes and non-finite data with ValueError."""
-        self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, sample_length=0)
-        self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, sample_length=-1)
-        self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, n=0)
-        self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, n=-2)
+        self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, m=0)
+        self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, m=-1)
+        self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, exponent=0)
+        self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, exponent=-2)
         self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, tolerance=0)
         self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, tolerance=-0.1)
         self.assertRaises(ValueError, ent.fuzzy_entropy, TIME_SERIES, tolerance=float("nan"))
         self.assertRaises(ValueError, ent.fuzzy_entropy, np.zeros((3, 3)))
-        self.assertRaises(ValueError, ent.fuzzy_entropy, [1, 2, 3], sample_length=2)
+        self.assertRaises(ValueError, ent.fuzzy_entropy, [1, 2, 3], m=2)
         self.assertRaises(ValueError, ent.fuzzy_entropy, [1.0, np.nan, 3.0, 4.0, 5.0])
         self.assertRaises(ValueError, ent.fuzzy_entropy, [1.0, np.inf, 3.0, 4.0, 5.0])
 
     def test_fuzzy_entropy_invalid_types(self):
         """Reject non-integer sample_length with TypeError."""
-        self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, sample_length=2.5)
-        self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, sample_length=2.0)
-        self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, sample_length=True)
+        self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, m=2.5)
+        self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, m=2.0)
+        self.assertRaises(TypeError, ent.fuzzy_entropy, TIME_SERIES, m=True)
+
+
+class TestFuzzySign(unittest.TestCase):
+    def test_constant_series_explicit_tolerance_is_positive_zero(self):
+        """Return +0.0 (not -0.0) for a constant series with an explicit tolerance."""
+        value = ent.fuzzy_entropy(np.ones(50), tolerance=0.2)
+        self.assertEqual(np.copysign(1.0, value), 1.0)
+
+
+class TestFuzzyConstantSeries(unittest.TestCase):
+    def test_constant_float_series_is_zero(self):
+        """Return +0.0 for constant series whose std is a tiny nonzero number, e.g. np.full(61, 0.1)."""
+        for value in (0.1, 0.3, 1 / 3, 7.0):
+            series = np.full(61, value)
+            res = ent.fuzzy_entropy(series, 2)
+            self.assertEqual(res, 0.0)
+            self.assertEqual(math.copysign(1.0, res), 1.0)
+            # same as any explicit tolerance
+            self.assertEqual(ent.fuzzy_entropy(series, 2, tolerance=0.5), res)

@@ -34,3 +34,10 @@ repos:
         language: system
         entry: poetry run ruff check . --fix
         pass_filenames: false
+
+      - id: pyrefly
+        name: pyrefly type check
+        language: system
+        entry: poetry run pyrefly check
+        pass_filenames: false
+        types: [python]

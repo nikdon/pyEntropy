@@ -5,7 +5,8 @@ from collections import Counter
 import numpy as np
 
 from pyentrp import entropy as ent
-from tests._entropy_test_data import TIME_SERIES, TS_SAMPLE_ENTROPY
+from pyentrp._dispersion import map_to_classes
+from tests._entropy_test_data import RANDOM_TIME_SERIES, TIME_SERIES, TS_SAMPLE_ENTROPY
 
 
 def _entropy_bits(counts):
@@ -98,7 +99,7 @@ class TestDispersionEntropy(unittest.TestCase):
         local_rng = np.random.default_rng(77)
         x = local_rng.standard_normal(400)
         for mapping in ("ncdf", "linear"):
-            z = ent._map_to_classes(x, 4, mapping)
+            z = map_to_classes(x, 4, mapping)
             for order, delay in ((2, 1), (3, 2), (4, 3)):
                 with self.subTest(mapping=mapping, order=order, delay=delay):
                     span = (order - 1) * delay
@@ -111,7 +112,7 @@ class TestDispersionEntropy(unittest.TestCase):
         """Reduce to the Shannon entropy of the class labels when order is 1."""
         local_rng = np.random.default_rng(8)
         x = local_rng.standard_normal(300)
-        z = ent._map_to_classes(x, 5, "linear")
+        z = map_to_classes(x, 5, "linear")
         np.testing.assert_allclose(
             ent.dispersion_entropy(x, classes=5, order=1, mapping="linear"),
             ent.shannon_entropy(z),
@@ -161,24 +162,24 @@ class TestDispersionEntropy(unittest.TestCase):
     def test_map_to_classes_known_values(self):
         """Map 1..10 to the expected classes under both mappings."""
         x = np.arange(1, 11, dtype=float)
-        np.testing.assert_array_equal(ent._map_to_classes(x, 3, "ncdf"), [1, 1, 1, 1, 2, 2, 3, 3, 3, 3])
-        np.testing.assert_array_equal(ent._map_to_classes(x, 3, "linear"), [1, 1, 1, 2, 2, 2, 3, 3, 3, 3])
+        np.testing.assert_array_equal(map_to_classes(x, 3, "ncdf"), [1, 1, 1, 1, 2, 2, 3, 3, 3, 3])
+        np.testing.assert_array_equal(map_to_classes(x, 3, "linear"), [1, 1, 1, 2, 2, 2, 3, 3, 3, 3])
 
     def test_map_to_classes_ties_go_to_higher_class(self):
         """Send values exactly on a class boundary to the higher class (round half up)."""
         # min-max scaling puts these values at y = 0, 1/3, 2/3, 1, so classes * y is an exact integer
         x = np.array([0.0, 2.0, 4.0, 6.0])
-        np.testing.assert_array_equal(ent._map_to_classes(x, 3, "linear"), [1, 2, 3, 3])
+        np.testing.assert_array_equal(map_to_classes(x, 3, "linear"), [1, 2, 3, 3])
         # 4 classes: c*y = 0, 1, 2, 3, 4 for x = 0..4 -> classes 1, 2, 3, 4, 4
-        np.testing.assert_array_equal(ent._map_to_classes(np.arange(5.0), 4, "linear"), [1, 2, 3, 4, 4])
+        np.testing.assert_array_equal(map_to_classes(np.arange(5.0), 4, "linear"), [1, 2, 3, 4, 4])
         # 2 classes: the midpoint belongs to the upper class
-        np.testing.assert_array_equal(ent._map_to_classes(np.array([0.0, 1.0, 2.0]), 2, "linear"), [1, 2, 2])
+        np.testing.assert_array_equal(map_to_classes(np.array([0.0, 1.0, 2.0]), 2, "linear"), [1, 2, 2])
 
     def test_map_to_classes_ncdf_ties_go_to_higher_class(self):
         """Send a value equal to the series mean (z = 0, Phi = 0.5) to the higher class."""
         x = np.array([-1.0, 0.0, 1.0])
-        np.testing.assert_array_equal(ent._map_to_classes(x, 2, "ncdf"), [1, 2, 2])
-        np.testing.assert_array_equal(ent._map_to_classes(x, 4, "ncdf"), [1, 3, 4])
+        np.testing.assert_array_equal(map_to_classes(x, 2, "ncdf"), [1, 2, 2])
+        np.testing.assert_array_equal(map_to_classes(x, 4, "ncdf"), [1, 3, 4])
 
     def test_map_to_classes_ncdf_matches_erf_reference(self):
         """Match floor(c * Phi(z)) + 1 computed directly with math.erf."""
@@ -189,18 +190,19 @@ class TestDispersionEntropy(unittest.TestCase):
         for classes in (2, 3, 5, 8):
             with self.subTest(classes=classes):
                 expected = np.minimum(np.floor(classes * phi).astype(int) + 1, classes)
-                np.testing.assert_array_equal(ent._map_to_classes(x, classes, "ncdf"), expected)
+                np.testing.assert_array_equal(map_to_classes(x, classes, "ncdf"), expected)
 
     def test_map_to_classes_range_and_degenerate_input(self):
-        """Use labels 1..classes and return None for degenerate input."""
+        """Use labels 1..classes and put a constant series in the middle class."""
         local_rng = np.random.default_rng(2)
         x = local_rng.standard_normal(1000)
         for mapping in ("ncdf", "linear"):
-            z = ent._map_to_classes(x, 6, mapping)
+            z = map_to_classes(x, 6, mapping)
             self.assertEqual(z.dtype, np.int64)
             self.assertEqual(z.min(), 1)
             self.assertEqual(z.max(), 6)
-            self.assertIsNone(ent._map_to_classes(np.ones(10), 6, mapping))
+            np.testing.assert_array_equal(map_to_classes(np.ones(10), 6, mapping), np.full(10, 4))
+            np.testing.assert_array_equal(map_to_classes(np.ones(4), 3, mapping), np.full(4, 2))
 
     def test_dispersion_entropy_invalid_values(self):
         """Reject out-of-range parameters, bad shapes and non-finite data with ValueError."""
@@ -226,6 +228,37 @@ class TestDispersionEntropy(unittest.TestCase):
         self.assertRaises(TypeError, ent.dispersion_entropy, TIME_SERIES, mapping=1)
         self.assertRaises(TypeError, ent.dispersion_entropy, TIME_SERIES, normalize="yes")
         self.assertRaises(TypeError, ent.dispersion_entropy, TIME_SERIES, normalize=1)
+
+    def test_dispersion_entropy_mapping_is_case_insensitive(self):
+        """Accept mapping names in any letter case."""
+        x = RANDOM_TIME_SERIES[:200]
+        for mapping in ("ncdf", "linear"):
+            expected = ent.dispersion_entropy(x, mapping=mapping)
+            self.assertEqual(ent.dispersion_entropy(x, mapping=mapping.upper()), expected)
+            self.assertEqual(ent.dispersion_entropy(x, mapping=mapping.capitalize()), expected)
+
+
+class TestDispersionConstantSeries(unittest.TestCase):
+    def test_constant_float_series_is_zero(self):
+        """Return +0.0 for constant series whose std is a tiny nonzero number, e.g. np.full(61, 0.1)."""
+        for value in (0.1, 0.3, 1 / 3):
+            for mapping in ("ncdf", "linear"):
+                res = ent.dispersion_entropy(np.full(61, value), mapping=mapping)
+                self.assertEqual(res, 0.0)
+                self.assertEqual(math.copysign(1.0, res), 1.0)
+
+
+class TestDispersionLargePatternSpaces(unittest.TestCase):
+    def test_int64_ids_and_rows_agree_with_brute_force(self):
+        """Count patterns exactly with int64 ids up to 2**63 patterns and with rows beyond."""
+        x = np.random.default_rng(5).standard_normal(400)
+        for classes, order in ((10, 6), (2, 63), (2, 64), (40, 5)):
+            with self.subTest(classes=classes, order=order):
+                z = map_to_classes(x, classes, "ncdf")
+                counts = Counter(tuple(z[i : i + order]) for i in range(len(z) - order + 1))
+                p = np.array(list(counts.values())) / sum(counts.values())
+                expected = float(-np.sum(p * np.log2(p)))
+                self.assertAlmostEqual(ent.dispersion_entropy(x, classes, order), expected, places=12)
 
 
 if __name__ == "__main__":

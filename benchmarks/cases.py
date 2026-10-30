@@ -83,34 +83,44 @@ def _benchmark_weighted_permutation_entropy_order_3(data: BenchmarkData):
     return ent.weighted_permutation_entropy(data.series, order=3)
 
 
-@bench("multiscale_permutation_entropy (m=3, 5 scales)")
+@bench("multiscale_permutation_entropy (order 3, 5 scales)")
 def _benchmark_multiscale_permutation_entropy(data: BenchmarkData):
     return ent.multiscale_permutation_entropy(data.series, 3, 1, 5)
 
 
-@bench("dispersion_entropy (c=6, m=3)")
+@bench("dispersion_entropy (6 classes, order 3)")
 def _benchmark_dispersion_entropy(data: BenchmarkData):
     return ent.dispersion_entropy(data.series, classes=6, order=3)
 
 
+@bench("composite_multiscale permutation_entropy (order 3, scale 5)")
+def _benchmark_composite_multiscale_permutation(data: BenchmarkData):
+    return ent.composite_multiscale(data.series, ent.permutation_entropy, 5, order=3)
+
+
+@bench("refined_composite_multiscale dispersion_entropy (6 classes, order 3, scale 5)")
+def _benchmark_refined_composite_multiscale_dispersion(data: BenchmarkData):
+    return ent.refined_composite_multiscale(data.series, ent.dispersion_entropy, 5, classes=6, order=3)
+
+
 @bench("sample_entropy (m=2)")
 def _benchmark_sample_entropy(data: BenchmarkData):
-    return ent.sample_entropy(data.series, 3, data.tolerance)  # sample_length = m + 1
+    return ent.sample_entropy(data.series, m=2, tolerance=data.tolerance)
 
 
 @bench("multiscale_entropy (m=2, 5 scales)")
 def _benchmark_multiscale_entropy(data: BenchmarkData):
-    return ent.multiscale_entropy(data.series, 3, data.tolerance, maxscale=5)
+    return ent.multiscale_entropy(data.series, m=2, tolerance=data.tolerance, scale=5)
 
 
 @bench("composite_multiscale_entropy (m=2, scale 5)")
 def _benchmark_composite_multiscale_entropy(data: BenchmarkData):
-    return ent.composite_multiscale_entropy(data.series, 3, 5, data.tolerance)
+    return ent.composite_multiscale_entropy(data.series, m=2, scale=5, tolerance=data.tolerance)
 
 
 @bench("rcmse (m=2, scale 5)")
 def _benchmark_rcmse(data: BenchmarkData):
-    return ent.rcmse(data.series, 3, 5, data.tolerance)
+    return ent.rcmse(data.series, m=2, scale=5, tolerance=data.tolerance)
 
 
 @bench("fuzzy_entropy (m=2)")
